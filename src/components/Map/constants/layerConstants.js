@@ -26,5 +26,9 @@ export const DEFAULT_EXPANDED_CATEGORIES = {
   bikeNetwork: true,
   pedestrianNetwork: true,
   transportation: true,
-  planning: true
+  planning: true,
+  parks: true,
+  employment: true,
+  neighborhoods: true,
+  localZones: true
 }; 

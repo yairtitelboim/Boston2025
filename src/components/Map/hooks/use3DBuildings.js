@@ -242,20 +242,8 @@ export const use3DBuildings = (map) => {
         console.warn('Mapbox buildings layer not found');
       }
 
-      // Update camera
-      if (newState) {
-        console.log('Updating camera pitch to 60 degrees');
-        map.current.easeTo({
-          pitch: 60,
-          duration: 1000
-        });
-      } else {
-        console.log('Resetting camera pitch to 0 degrees');
-        map.current.easeTo({
-          pitch: 0,
-          duration: 1000
-        });
-      }
+      // Remove automatic camera pitch adjustment
+      // Keep the camera position as is
       
       setShow3DBuildings(newState);
       console.log('3D buildings toggle complete');
@@ -291,11 +279,8 @@ export const use3DBuildings = (map) => {
       setShow3DBuildings(false);
       setIs3DLoading(false);
       
-      // Reset camera
-      map.current.easeTo({
-        pitch: 0,
-        duration: 1000
-      });
+      // Remove automatic camera reset
+      // Keep the camera position as is
       
       console.log('3D buildings reset complete');
     } catch (error) {

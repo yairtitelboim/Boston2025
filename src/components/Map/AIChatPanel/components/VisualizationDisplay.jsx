@@ -1,0 +1,1661 @@
+import React, { useState, useCallback, useEffect } from 'react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  AreaChart,
+  Area
+} from 'recharts';
+import { 
+  AlertTriangle, 
+  Building, 
+  BarChart2, 
+  Clock, 
+  ArrowRight,
+  Wand2
+} from 'lucide-react';
+import { milestoneCategories } from '../mockData';
+import styled, { keyframes } from 'styled-components';
+import { handleServiceCorridorsQuestion, simulateGraphActionDelay, handleInfrastructureVisualization } from '../../../../services/claude';
+
+// Animation for card click effect
+const glimmerEffect = keyframes`
+  0% {
+    box-shadow: 0 0 0 rgba(255, 255, 255, 0);
+    filter: blur(0px) brightness(1);
+    transform: scale(1);
+  }
+  30% {
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.6);
+    filter: blur(1px) brightness(1.3);
+    transform: scale(0.98);
+  }
+  100% {
+    box-shadow: 0 0 0 rgba(255, 255, 255, 0);
+    filter: blur(0) brightness(1);
+    transform: scale(1);
+  }
+`;
+
+// Define micro animations for icons
+const pulse = keyframes`
+  0% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.8; }
+`;
+
+const rotate = keyframes`
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+`;
+
+const bounce = keyframes`
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+`;
+
+const wave = keyframes`
+  0% { transform: translateX(0); }
+  25% { transform: translateX(2px); }
+  75% { transform: translateX(-2px); }
+  100% { transform: translateX(0); }
+`;
+
+// Styled component for animated icons
+const CardIcon = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+  width: ${props => props.$size === 'small' ? '24px' : '32px'};
+  height: ${props => props.$size === 'small' ? '24px' : '32px'};
+  min-width: ${props => props.$size === 'small' ? '24px' : '32px'};
+  margin-right: 10px;
+  background-color: ${props => props.$bgColor || '#4f46e5'};
+  
+  svg {
+    width: ${props => props.$size === 'small' ? '14px' : '20px'};
+    height: ${props => props.$size === 'small' ? '14px' : '20px'};
+    stroke: white;
+    stroke-width: 2;
+  }
+  
+  /* Animations */
+  &.pulse {
+    animation: ${pulse} 2s infinite ease-in-out;
+  }
+  
+  &.rotate {
+    animation: ${rotate} 4s infinite linear;
+  }
+  
+  &.bounce {
+    animation: ${bounce} 1.2s infinite ease-in-out;
+  }
+  
+  &.wave {
+    animation: ${wave} 1.3s infinite ease-in-out;
+  }
+`;
+
+// Styled component for the clickable card
+const ClickableCard = styled.div`
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  }
+  
+  &.clicked {
+    animation: ${glimmerEffect} 0.8s ease-out forwards;
+  }
+`;
+
+// Create a context for loading state
+const LoadingContext = React.createContext({
+  setIsLoading: () => {},
+});
+
+// Custom function to handle the card click for "Central City Transit Corridors"
+const handleTransitCorridorsCardClick = async () => {
+  // Get the global functions we need
+  const setIsLoading = window.setAIChatPanelLoading;
+  const setMessages = window.setAIChatPanelMessages;
+  const effectiveMap = window.mapComponent?.map;
+  
+  if (!setMessages || !setIsLoading) {
+    console.error("Required global functions not available");
+    return;
+  }
+  
+  try {
+    setIsLoading(true);
+    
+    // Try to load the Zoning scene immediately if it exists
+    console.log("Attempting to load Zoning scene from card click");
+    if (window.mapComponent && typeof window.mapComponent.loadSceneByName === 'function') {
+      const sceneLoaded = window.mapComponent.loadSceneByName("Zoning");
+      console.log("Scene load attempt result:", sceneLoaded);
+    }
+    
+    // Add custom message to indicate we're viewing from card click
+    setMessages(prevMessages => [
+      ...prevMessages,
+      {
+        isUser: true,
+        content: "View Central City Transit Corridors"
+      }
+    ]);
+    
+    // Show loading step
+    await simulateGraphActionDelay();
+    
+    setMessages(prevMessages => [
+      ...prevMessages,
+      {
+        isUser: false,
+        content: { 
+          processingStep: true,
+          icon: '💜',
+          text: "Loading Central City Transit Corridors visualization..."
+        }
+      }
+    ]);
+    
+    // Return the response with service corridors data
+    setMessages(prevMessages => {
+      // First remove all processing step messages
+      const withoutProcessingSteps = prevMessages.filter(msg => 
+        !msg.content || !msg.content.processingStep
+      );
+      
+      // Find the most recent user message
+      const mostRecentUserMsgIndex = withoutProcessingSteps.findIndex(
+        msg => msg.isUser && msg.content === "View Central City Transit Corridors"
+      );
+      
+      return [
+        ...withoutProcessingSteps.slice(0, mostRecentUserMsgIndex >= 0 ? mostRecentUserMsgIndex + 1 : withoutProcessingSteps.length),
+        { 
+          isUser: false, 
+          content: {
+            preGraphText: "Here's a visualization of the Central City Transit Corridors that could significantly improve connectivity and service access around Skid Row:",
+            graphData: window.SERVICE_CORRIDORS_DATA || {}, // Use globally available data if possible
+            postGraphText: "These transit corridors would create strategic connections between Skid Row and key areas like Union Station, improving pedestrian mobility and access to services. The implementation would require moderate investment but would yield significant improvements in community connectivity and quality of life."
+          } 
+        }
+      ];
+    });
+  } catch (error) {
+    console.error("Error in handleTransitCorridorsCardClick:", error);
+    setMessages(prevMessages => [
+      ...prevMessages,
+      {
+        isUser: false,
+        content: { 
+          preGraphText: "I'm sorry, I encountered an error while displaying the Central City Transit Corridors. Please try again.",
+          postGraphText: "You may want to check if all map layers are loaded correctly or try refreshing the page."
+        }
+      }
+    ]);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+// This component handles all the different visualization types
+const VisualizationDisplay = ({ visualizationType, data }) => {
+  // DEBUG: Log visualization type and data
+  console.log("VisualizationDisplay rendering:", { 
+    visualizationType, 
+    hasData: !!data,
+    dataType: data?.type,
+    dataKeys: data ? Object.keys(data) : []
+  });
+  
+  // State to track if card is clicked
+  const [clickedCard, setClickedCard] = useState(null);
+  
+  // State for skeleton loading and staggered rendering
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadedSections, setLoadedSections] = useState({
+    header: false,
+    metrics: false,
+    details: false,
+    chart: false,
+    actions: false
+  });
+  
+  // Inject CSS for fade-in animation
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.innerHTML = `
+      @keyframes fadeInAnimation {
+        from { 
+          opacity: 0; 
+          transform: translateY(10px);
+        }
+        to { 
+          opacity: 1; 
+          transform: translateY(0);
+        }
+      }
+
+      .fade-in {
+        animation: fadeInAnimation 0.5s ease-out forwards;
+      }
+      
+      .fade-in-slow {
+        animation: fadeInAnimation 0.8s ease-out forwards;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+  
+  // Staggered loading effect when a card is clicked
+  useEffect(() => {
+    if (isLoading) {
+      // Header loads first (fastest)
+      const headerTimer = setTimeout(() => {
+        setLoadedSections(prev => ({ ...prev, header: true }));
+      }, 400);
+      
+      // Metrics load second
+      const metricsTimer = setTimeout(() => {
+        setLoadedSections(prev => ({ ...prev, metrics: true }));
+      }, 800);
+      
+      // Chart loads third
+      const chartTimer = setTimeout(() => {
+        setLoadedSections(prev => ({ ...prev, chart: true }));
+      }, 1200);
+      
+      // Details load fourth
+      const detailsTimer = setTimeout(() => {
+        setLoadedSections(prev => ({ ...prev, details: true }));
+      }, 1600);
+      
+      // Actions load last (slowest)
+      const actionsTimer = setTimeout(() => {
+        setLoadedSections(prev => ({ ...prev, actions: true }));
+        setIsLoading(false); // All sections loaded
+      }, 2000);
+      
+      return () => {
+        clearTimeout(headerTimer);
+        clearTimeout(metricsTimer);
+        clearTimeout(chartTimer);
+        clearTimeout(detailsTimer);
+        clearTimeout(actionsTimer);
+      };
+    }
+  }, [isLoading]);
+  
+  // Reset loaded sections when visualization type changes
+  useEffect(() => {
+    setLoadedSections({
+      header: false,
+      metrics: false,
+      details: false,
+      chart: false,
+      actions: false
+    });
+  }, [visualizationType]);
+  
+  // Make SERVICE_CORRIDORS_DATA available globally
+  useEffect(() => {
+    // Import the SERVICE_CORRIDORS_DATA and make it globally available
+    import('../../../../services/claude').then(claudeService => {
+      window.SERVICE_CORRIDORS_DATA = claudeService.SERVICE_CORRIDORS_DATA;
+    }).catch(error => {
+      console.error("Error importing SERVICE_CORRIDORS_DATA:", error);
+    });
+  }, []);
+  
+  // Skeleton loaders for different sections
+  const HeaderSkeleton = () => (
+    <div className="p-4 border-b border-gray-800 animate-pulse">
+      <div className="flex items-center gap-2 mb-2">
+        <div className="w-5 h-5 bg-gray-700 rounded-full"></div>
+        <div className="h-6 bg-gray-700 rounded w-3/4"></div>
+      </div>
+      <div className="h-4 bg-gray-700 rounded w-full mt-2"></div>
+      <div className="h-4 bg-gray-700 rounded w-5/6 mt-2"></div>
+    </div>
+  );
+  
+  const MetricsSkeleton = () => (
+    <div className="p-4 border-b border-gray-800 animate-pulse">
+      <div className="h-5 bg-gray-700 rounded w-1/3 mb-3"></div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {Array(6).fill().map((_, idx) => (
+          <div key={idx} className="bg-gray-800 p-3 rounded-lg">
+            <div className="h-6 bg-gray-700 rounded w-1/2 mb-2"></div>
+            <div className="h-3 bg-gray-700 rounded w-3/4"></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+  
+  const ChartSkeleton = () => (
+    <div className="p-4 border-b border-gray-800 animate-pulse">
+      <div className="h-5 bg-gray-700 rounded w-1/3 mb-3"></div>
+      <div className="h-80 bg-gray-800 rounded-lg flex items-center justify-center">
+        <svg className="w-12 h-12 text-gray-700" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      </div>
+    </div>
+  );
+  
+  const DetailsSkeleton = () => (
+    <div className="p-4 animate-pulse">
+      <div className="h-5 bg-gray-700 rounded w-1/3 mb-3"></div>
+      <div className="space-y-4">
+        {Array(3).fill().map((_, idx) => (
+          <div key={idx} className="bg-gray-800 rounded-lg p-3 border border-gray-700">
+            <div className="flex justify-between items-center mb-2">
+              <div className="flex items-center">
+                <div className="w-8 h-8 bg-gray-700 rounded-full mr-2"></div>
+                <div className="h-4 bg-gray-700 rounded w-32"></div>
+              </div>
+              <div className="h-4 bg-gray-700 rounded w-16"></div>
+            </div>
+            <div className="h-3 bg-gray-700 rounded w-full mb-2"></div>
+            <div className="h-3 bg-gray-700 rounded w-5/6 mb-2"></div>
+            <div className="flex flex-wrap gap-2 mt-3">
+              <div className="h-3 bg-gray-700 rounded w-16"></div>
+              <div className="h-3 bg-gray-700 rounded w-20"></div>
+              <div className="h-3 bg-gray-700 rounded w-24"></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+  
+  const ActionsSkeleton = () => (
+    <div className="p-4 bg-gray-800 animate-pulse">
+      <div className="flex flex-wrap gap-2">
+        {Array(3).fill().map((_, idx) => (
+          <div key={idx} className="h-10 bg-gray-700 rounded-lg w-28"></div>
+        ))}
+      </div>
+    </div>
+  );
+  
+  // Function to handle the click on Central City Transit Corridors
+  const handleCardClick = (interventionName) => {
+    // Set loading state and reset loaded sections
+    setIsLoading(true);
+    setLoadedSections({
+      header: false,
+      metrics: false,
+      details: false,
+      chart: false,
+      actions: false
+    });
+    
+    // Set clicked card for visual feedback
+    setClickedCard(interventionName);
+    
+    // Show a tooltip or notification
+    const notification = document.createElement('div');
+    notification.textContent = `Loading ${interventionName} visualization...`;
+    notification.style.position = "fixed";
+    notification.style.bottom = "20px";
+    notification.style.left = "50%";
+    notification.style.transform = "translateX(-50%)";
+    notification.style.backgroundColor = "#4c1d95"; // Purple
+    notification.style.color = "white";
+    notification.style.padding = "10px 20px";
+    notification.style.borderRadius = "4px";
+    notification.style.zIndex = "9999";
+    notification.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.3)";
+    notification.style.animation = "fadeInOut 2.5s forwards";
+    
+    // Create a style element for the animation
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes fadeInOut {
+        0% { opacity: 0; transform: translate(-50%, 20px); }
+        15% { opacity: 1; transform: translate(-50%, 0); }
+        85% { opacity: 1; transform: translate(-50%, 0); }
+        100% { opacity: 0; transform: translate(-50%, -20px); }
+      }
+    `;
+    document.head.appendChild(style);
+    document.body.appendChild(notification);
+    
+    // Remove the notification after animation completes
+    setTimeout(() => {
+      document.body.removeChild(notification);
+      document.head.removeChild(style);
+    }, 2500);
+    
+    // Handle Central City Transit Corridors case
+    if (interventionName === "Central City Transit Corridors") {
+      // Call the custom handler for this card
+      handleTransitCorridorsCardClick();
+    }
+    
+    // Handle Infrastructure & Data Centers case
+    if (interventionName === "Infrastructure & Data Centers") {
+      console.log("🎯 Infrastructure & Data Centers card clicked");
+      
+      // Load the "v1" scene
+      if (window.mapComponent && typeof window.mapComponent.loadSceneByName === 'function') {
+        console.log("🗺️ Attempting to load v1 scene");
+        const sceneLoaded = window.mapComponent.loadSceneByName("v1");
+        console.log("📍 Scene load result:", sceneLoaded);
+      } else {
+        console.warn("⚠️ mapComponent or loadSceneByName not available");
+      }
+      
+      // Call the infrastructure visualization handler
+      const setIsLoading = window.setAIChatPanelLoading;
+      const setMessages = window.setAIChatPanelMessages;
+      const effectiveMap = window.mapComponent?.map;
+      
+      console.log("🔧 Checking required functions:", {
+        hasSetIsLoading: !!setIsLoading,
+        hasSetMessages: !!setMessages,
+        hasEffectiveMap: !!effectiveMap
+      });
+      
+      if (setMessages && setIsLoading) {
+        console.log("🚀 Calling handleInfrastructureVisualization");
+        handleInfrastructureVisualization(effectiveMap, setMessages, setIsLoading)
+          .then(() => console.log("✅ Infrastructure visualization complete"))
+          .catch(error => console.error("❌ Error in infrastructure visualization:", error));
+      } else {
+        console.error("❌ Required functions not available for infrastructure visualization");
+      }
+    }
+    
+    // Handle quick action buttons for renewable energy visualization
+    if (interventionName === "SHOW_SOLAR_POTENTIAL") {
+      console.log("☀️ Solar Potential Analysis button clicked");
+      
+      // Find and load the next scene
+      if (window.mapComponent && typeof window.mapComponent.loadSceneByName === 'function') {
+        // Specifically load the scene named "Next" (with capital N)
+        console.log("🗺️ Attempting to load 'Next' scene (exact name match)");
+        let sceneLoaded = window.mapComponent.loadSceneByName("Next");
+        
+        console.log("📍 Scene load result:", sceneLoaded);
+        
+        // If we couldn't load the Next scene, show a fallback message
+        if (!sceneLoaded) {
+          console.warn("⚠️ 'Next' scene not found");
+          const setMessages = window.setAIChatPanelMessages;
+          if (setMessages) {
+            setMessages(prevMessages => [
+              ...prevMessages,
+              {
+                isUser: false,
+                content: { 
+                  preGraphText: "The 'Next' scene could not be loaded. Please make sure a scene named 'Next' exists in your scenes collection.",
+                  postGraphText: "In the meantime, you can explore the renewable energy capacity data in the current visualization."
+                }
+              }
+            ]);
+          }
+        } else {
+          // Scene loaded successfully, update the AI Panel with a message
+          const setMessages = window.setAIChatPanelMessages;
+          if (setMessages) {
+            setMessages(prevMessages => [
+              ...prevMessages,
+              {
+                isUser: true,
+                content: "View Solar Potential Analysis"
+              },
+              {
+                isUser: false,
+                content: { 
+                  preGraphText: "Loading detailed solar potential analysis for Los Angeles neighborhoods...",
+                  postGraphText: "This visualization shows the rooftop solar capacity and potential energy generation across different areas. The highlighted regions indicate optimal locations for new solar installations."
+                }
+              }
+            ]);
+          }
+        }
+      } else {
+        console.warn("⚠️ mapComponent or loadSceneByName not available");
+      }
+    }
+    
+    // Handle other quick action buttons for renewable energy visualization
+    if (interventionName === "SHOW_GRID_INTEGRATION" || interventionName === "SHOW_ENERGY_FORECAST") {
+      console.log(`🔌 ${interventionName} button clicked`);
+      
+      // Try to load an appropriate scene
+      if (window.mapComponent && typeof window.mapComponent.loadSceneByName === 'function') {
+        // For grid integration, try to find a scene with 'grid' in the name
+        // For energy forecast, try to find a scene with 'forecast' in the name
+        const searchTerm = interventionName === "SHOW_GRID_INTEGRATION" ? "grid" : "forecast";
+        console.log(`🗺️ Attempting to load scene with "${searchTerm}" in the name`);
+        let sceneLoaded = window.mapComponent.loadSceneByName(searchTerm);
+        
+        // If that doesn't work, try alternative scene names
+        if (!sceneLoaded && interventionName === "SHOW_GRID_INTEGRATION") {
+          console.log("🗺️ Grid scene not found, trying 'network' or 'integration'");
+          sceneLoaded = window.mapComponent.loadSceneByName("network") || 
+                         window.mapComponent.loadSceneByName("integration") ||
+                         window.mapComponent.loadSceneByName("v3");
+        } else if (!sceneLoaded && interventionName === "SHOW_ENERGY_FORECAST") {
+          console.log("🗺️ Forecast scene not found, trying 'projection' or 'future'");
+          sceneLoaded = window.mapComponent.loadSceneByName("projection") || 
+                         window.mapComponent.loadSceneByName("future") ||
+                         window.mapComponent.loadSceneByName("v4");
+        }
+        
+        console.log("📍 Scene load result:", sceneLoaded);
+        
+        if (sceneLoaded) {
+          // Scene loaded successfully, update the AI Panel with a message
+          const setMessages = window.setAIChatPanelMessages;
+          if (setMessages) {
+            // Set appropriate message based on which button was clicked
+            const title = interventionName === "SHOW_GRID_INTEGRATION" ? 
+                          "Grid Integration Analysis" : "Future Energy Projections";
+            const preText = interventionName === "SHOW_GRID_INTEGRATION" ? 
+                           "Analyzing renewable energy grid integration across Los Angeles..." :
+                           "Loading future energy capacity projections through 2030...";
+            const postText = interventionName === "SHOW_GRID_INTEGRATION" ? 
+                            "This analysis shows how renewable energy sources can be integrated into the existing power grid, with focus on minimizing infrastructure costs while maximizing reliability." :
+                            "The projection model indicates a potential 320% increase in renewable capacity by 2030, with solar continuing to be the dominant source at 72% of all renewable generation.";
+            
+            setMessages(prevMessages => [
+              ...prevMessages,
+              {
+                isUser: true,
+                content: `View ${title}`
+              },
+              {
+                isUser: false,
+                content: { 
+                  preGraphText: preText,
+                  postGraphText: postText
+                }
+              }
+            ]);
+          }
+          return;
+        }
+      }
+      
+      // Show a fallback message if no scene was loaded
+      const setMessages = window.setAIChatPanelMessages;
+      if (setMessages) {
+        const title = interventionName === "SHOW_GRID_INTEGRATION" ? "Grid Integration" : "Energy Forecast";
+        setMessages(prevMessages => [
+          ...prevMessages,
+          {
+            isUser: false,
+            content: { 
+              preGraphText: `${title} analysis is currently being prepared.`,
+              postGraphText: "This functionality will be available in a future update."
+            }
+          }
+        ]);
+      }
+    }
+    
+    // Reset the click state after animation completes
+    setTimeout(() => {
+      setClickedCard(null);
+    }, 800);
+  };
+
+  // Function to determine which icon to use for each intervention card
+  const getInterventionIcon = (interventionName) => {
+    // Return appropriate SVG based on the intervention name
+    if (interventionName.includes("Adaptive Reuse") || interventionName.includes("Building")) {
+      return (
+        <CardIcon className="pulse" $bgColor="#4B5563">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
+            <line x1="9" y1="2" x2="9" y2="22"></line>
+            <line x1="15" y1="2" x2="15" y2="22"></line>
+            <line x1="4" y1="12" x2="20" y2="12"></line>
+          </svg>
+        </CardIcon>
+      );
+    } else if (interventionName.includes("Transit") || interventionName.includes("Corridor")) {
+      return (
+        <CardIcon className="wave" $bgColor="#3B82F6">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 9h12v7H6z"></path>
+            <path d="M19 19H5a2 2 0 01-2-2V7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2z"></path>
+            <path d="M8 19v3"></path>
+            <path d="M16 19v3"></path>
+          </svg>
+        </CardIcon>
+      );
+    } else if (interventionName.includes("Infrastructure") || interventionName.includes("Mobility")) {
+      return (
+        <CardIcon className="rotate" $bgColor="#6366F1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+          </svg>
+        </CardIcon>
+      );
+    } else if (interventionName.includes("Mixed-Use") || interventionName.includes("Development")) {
+      return (
+        <CardIcon className="bounce" $bgColor="#8B5CF6">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2 12h2v10H2V12z"></path>
+            <path d="M6 8h2v14H6V8z"></path>
+            <path d="M10 4h2v18h-2V4z"></path>
+            <path d="M14 2h2v20h-2V2z"></path>
+            <path d="M18 6h2v16h-2V6z"></path>
+          </svg>
+        </CardIcon>
+      );
+    } else if (interventionName.includes("Healthcare") || interventionName.includes("Access")) {
+      return (
+        <CardIcon className="pulse" $bgColor="#EC4899">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+          </svg>
+        </CardIcon>
+      );
+    } else {
+      return (
+        <CardIcon className="pulse" $bgColor="#10B981">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <circle cx="12" cy="12" r="6"></circle>
+            <circle cx="12" cy="12" r="2"></circle>
+          </svg>
+        </CardIcon>
+      );
+    }
+  };
+
+  // Function to get infrastructure improvement icons
+  const getInfrastructureIcon = (improvementName) => {
+    if (improvementName.includes("Transit") || improvementName.includes("Bus") || improvementName.includes("Rail")) {
+      return (
+        <CardIcon className="wave" $bgColor="#8B5CF6">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+            <line x1="4" y1="12" x2="20" y2="12"></line>
+            <line x1="12" y1="4" x2="12" y2="20"></line>
+          </svg>
+        </CardIcon>
+      );
+    } else if (improvementName.includes("Sidewalk") || improvementName.includes("Pedestrian") || improvementName.includes("Walkability")) {
+      return (
+        <CardIcon className="bounce" $bgColor="#EC4899">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="5" r="3"></circle>
+            <line x1="12" y1="8" x2="12" y2="14"></line>
+            <path d="M8 14l-3 6"></path>
+            <path d="M16 14l3 6"></path>
+            <path d="M9 14h6"></path>
+          </svg>
+        </CardIcon>
+      );
+    } else if (improvementName.includes("Grid") || improvementName.includes("Power") || improvementName.includes("Electric")) {
+      return (
+        <CardIcon className="pulse" $bgColor="#10B981">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
+          </svg>
+        </CardIcon>
+      );
+    } else if (improvementName.includes("Bike") || improvementName.includes("Cycling")) {
+      return (
+        <CardIcon className="rotate" $bgColor="#6366F1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="5.5" cy="17.5" r="3.5"></circle>
+            <circle cx="18.5" cy="17.5" r="3.5"></circle>
+            <path d="M15 6a1 1 0 100-2 1 1 0 000 2zm-3 11.5l2-5 4 3-3 3"></path>
+            <path d="M14 15l-4-3 2-4h4"></path>
+          </svg>
+        </CardIcon>
+      );
+    } else {
+      return (
+        <CardIcon className="wave" $bgColor="#F59E0B">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <line x1="12" y1="2" x2="12" y2="22"></line>
+            <circle cx="12" cy="12" r="4"></circle>
+          </svg>
+        </CardIcon>
+      );
+    }
+  };
+
+  // Function to get energy action icons
+  const getEnergyActionIcon = (actionName) => {
+    if (actionName.includes("Grid") || actionName === "SHOW_GRID_INTEGRATION") {
+      return (
+        <CardIcon className="pulse" $bgColor="#10B981" $size="small">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2 2l20 20M6.4 6.4L17.6 17.6M12 2C6.5 2 2 6.5 2 12a10 10 0 0012 10"></path>
+            <path d="M18 11a7 7 0 00-7-7"></path>
+            <path d="M20 17A10 10 0 0022 12"></path>
+          </svg>
+        </CardIcon>
+      );
+    } else if (actionName.includes("Forecast") || actionName === "SHOW_ENERGY_FORECAST") {
+      return (
+        <CardIcon className="wave" $bgColor="#8B5CF6" $size="small">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+        </CardIcon>
+      );
+    } else if (actionName.includes("Solar") || actionName.includes("Renewable")) {
+      return (
+        <CardIcon className="bounce" $bgColor="#F59E0B" $size="small">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+        </CardIcon>
+      );
+    } else {
+      return (
+        <CardIcon className="rotate" $bgColor="#3B82F6" $size="small">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+          </svg>
+        </CardIcon>
+      );
+    }
+  };
+
+  // Apply fade-in classes to sections based on their loading state
+  const getFadeClass = (sectionType) => {
+    if (isLoading && !loadedSections[sectionType]) {
+      return '';
+    }
+    return 'fade-in';
+  };
+
+  if (visualizationType === "commercialCluster") {
+    return (
+      <div className="bg-gray-900 rounded-xl overflow-hidden shadow-xl border border-gray-800 w-full max-w-3xl">
+        {/* Commercial Info Header */}
+        <div className="p-4 border-b border-gray-800">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Building className="w-5 h-5 text-gray-400" />
+              <h2 className="text-xl font-bold text-white">{data.clusterData.name}</h2>
+            </div>
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-500" />
+              <span className="text-red-500 font-medium text-sm">High Risk Zone</span>
+            </div>
+          </div>
+          <div className="text-sm text-gray-400">
+            {data.clusterData.type} | {data.clusterData.properties} properties | {data.clusterData.sqft} sq ft
+          </div>
+        </div>
+
+        {/* Recovery Timeline */}
+        <div className="p-4 border-b border-gray-800">
+          <h3 className="font-bold text-white mb-3 flex items-center">
+            <Clock className="w-5 h-5 mr-2" />
+            AI Recovery Timeline
+          </h3>
+          
+          <div className="bg-gray-800 rounded-lg p-3 mb-4 text-gray-300 text-sm">
+            <p>Modeling a <span className="text-white font-bold">Category 4</span> hurricane scenario with sustained winds of <span className="text-white font-bold">130 mph</span> and rainfall of <span className="text-white font-bold">40+ inches</span> over <span className="text-white font-bold">4 days</span>. Initial impact shows <span className="text-white font-bold">65%</span> of the area experiencing power outages and flood depths averaging <span className="text-white font-bold">2.8 feet</span> above ground level, comparable to Hurricane Harvey conditions.</p>
+          </div>
+          
+          <div className="h-64 w-full mb-4">
+            <div className="text-gray-300 text-sm font-semibold mb-4 text-center">Recovery Projection scenario 102</div>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart 
+                data={[
+                  { time: 0, Infrastructure: 100, Environmental: 100, Operational: 100 },
+                  { time: 6, Infrastructure: 35, Environmental: 45, Operational: 60 },
+                  { time: 12, Infrastructure: 30, Environmental: 40, Operational: 55 },
+                  { time: 24, Infrastructure: 40, Environmental: 45, Operational: 65 },
+                  { time: 48, Infrastructure: 55, Environmental: 50, Operational: 75 },
+                  { time: 72, Infrastructure: 70, Environmental: 60, Operational: 85 },
+                  { time: 96, Infrastructure: 80, Environmental: 65, Operational: 90 },
+                  { time: 120, Infrastructure: 85, Environmental: 70, Operational: 95 },
+                  { time: 168, Infrastructure: 90, Environmental: 80, Operational: 98 },
+                  { time: 240, Infrastructure: 95, Environmental: 90, Operational: 100 }
+                ]}
+                margin={{ top: 10, right: 15, left: 5, bottom: 20 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                <XAxis 
+                  dataKey="time" 
+                  stroke="#9ca3af"
+                  tickFormatter={(value) => `${value}h`}
+                  tick={{ fontSize: 10 }}
+                  label={{ 
+                    value: 'Hours Since Impact', 
+                    position: 'insideBottom',
+                    fill: '#9ca3af',
+                    fontSize: 11,
+                    dy: 10,
+                    offset: -5
+                  }}
+                />
+                <YAxis 
+                  stroke="#9ca3af"
+                  tick={{ fontSize: 10 }}
+                  tickCount={5}
+                  tickFormatter={(value) => `${value}%`}
+                  axisLine={false}
+                  tickLine={false}
+                  label={{ 
+                    value: 'System Functionality', 
+                    angle: -90, 
+                    position: 'center',
+                    fill: '#9ca3af',
+                    fontSize: 11,
+                    dx: -25
+                  }}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#1f2937', 
+                    border: '1px solid #374151', 
+                    color: '#e5e7eb',
+                    fontSize: 11,
+                    padding: '8px'
+                  }}
+                  formatter={(value, name) => [`${value}%`, name]}
+                  labelFormatter={(value) => `Hour ${value}`}
+                />
+                <Legend 
+                  verticalAlign="bottom" 
+                  height={36}
+                  wrapperStyle={{
+                    fontSize: '11px',
+                    paddingTop: '15px',
+                    marginBottom: '-25px'
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="Infrastructure"
+                  stroke={milestoneCategories.Infrastructure.color}
+                  fill={milestoneCategories.Infrastructure.color}
+                  fillOpacity={0.2}
+                  name="Infrastructure"
+                  strokeWidth={2}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="Environmental"
+                  stroke={milestoneCategories.Environmental.color}
+                  fill={milestoneCategories.Environmental.color}
+                  fillOpacity={0.2}
+                  name="Environmental"
+                  strokeWidth={2}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="Operational"
+                  stroke={milestoneCategories.Operational.color}
+                  fill={milestoneCategories.Operational.color}
+                  fillOpacity={0.2}
+                  name="Operational"
+                  strokeWidth={2}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        
+        {/* Model Conclusions */}
+        <div className="p-4 pt-8 pb-8 border-b border-gray-800">
+          <h3 className="font-bold text-white mb-3">LLM Recovery Predictions</h3>
+          <div className="space-y-3">
+            {data.modelConclusions.map(model => (
+              <div 
+                key={model.id} 
+                className="bg-gray-800 rounded-lg p-3 border border-gray-700"
+                style={{ borderLeftColor: model.color, borderLeftWidth: '3px' }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: model.color }}></div>
+                    <span className="text-white font-bold">{model.name}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="text-gray-400 text-sm mr-2">Risk Score:</span>
+                    <span 
+                      className="text-sm font-bold rounded-lg px-2 py-0.5" 
+                      style={{ backgroundColor: `${model.color}30`, color: model.color }}
+                    >
+                      {model.riskScore}
+                    </span>
+                    <span className="text-white font-medium ml-3">{model.recoveryTime}</span>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-300 italic">"{model.uniqueFinding}"</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* Risk Factors Chart */}
+        <div className="p-4 border-b border-gray-800">
+          <h3 className="font-bold text-white mb-3 flex items-center">
+            <BarChart2 className="w-5 h-5 mr-2" />
+            Risk Factor Analysis
+          </h3>
+          
+          <div className="h-80 w-full mb-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={data.riskFactorData}
+                layout="vertical"
+                barGap={2}
+                barSize={8}
+              >
+                <defs>
+                  {data.llmModels.map(model => (
+                    <linearGradient key={model.id} id={`gradient-${model.id}`} x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor={`${model.color}40`} />
+                      <stop offset="100%" stopColor={model.color} />
+                    </linearGradient>
+                  ))}
+                </defs>
+                <CartesianGrid 
+                  strokeDasharray="3 3" 
+                  stroke="#374151" 
+                  horizontal={true}
+                />
+                <XAxis 
+                  type="number" 
+                  domain={[0, 100]} 
+                  stroke="#9ca3af"
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fill: '#9ca3af', fontSize: 12 }}
+                  label={{ 
+                    value: 'Risk Impact Score (%)', 
+                    position: 'bottom',
+                    fill: '#e5e7eb',
+                    fontSize: 13,
+                    dy: 15
+                  }}
+                />
+                <YAxis 
+                  dataKey="factor" 
+                  type="category" 
+                  stroke="#9ca3af"
+                  tickLine={false}
+                  axisLine={false}
+                  tick={(props) => {
+                    const factor = data.riskFactorData.find(d => d.factor === props.payload.value);
+                    const category = factor?.category;
+                    const categoryColor = milestoneCategories[category]?.color;
+                    return (
+                      <g transform={`translate(${props.x},${props.y})`}>
+                        <rect
+                          x={-135}
+                          y={-10}
+                          width={130}
+                          height={20}
+                          fill={`${categoryColor}15`}
+                          rx={4}
+                        />
+                        <text
+                          x={-15}
+                          y={0}
+                          dy={4}
+                          textAnchor="end"
+                          fill="#e5e7eb"
+                          fontSize={13}
+                          fontWeight={500}
+                        >
+                          {props.payload.value}
+                        </text>
+                        <text
+                          x={-125}
+                          y={0}
+                          dy={4}
+                          textAnchor="start"
+                          fill={categoryColor}
+                          fontSize={12}
+                          fontWeight={600}
+                        >
+                          {category}
+                        </text>
+                      </g>
+                    );
+                  }}
+                  width={140}
+                />
+                <Legend
+                  verticalAlign="top"
+                  align="right"
+                  iconType="circle"
+                  wrapperStyle={{
+                    paddingBottom: '10px'
+                  }}
+                />
+                <Tooltip 
+                  cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
+                  contentStyle={{ 
+                    backgroundColor: '#1f2937', 
+                    border: '1px solid #374151', 
+                    borderRadius: '6px',
+                    color: '#f3f4f6'
+                  }}
+                  itemStyle={{ color: '#e5e7eb', fontSize: '12px' }}
+                  labelStyle={{ color: '#e5e7eb', fontWeight: 600, marginBottom: '8px' }}
+                  formatter={(value, name, props) => {
+                    const model = data.llmModels.find(m => m.name === name);
+                    return [
+                      <>
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '8px',
+                          padding: '4px 8px',
+                          background: `${model.color}15`,
+                          borderRadius: '4px',
+                          marginBottom: '4px'
+                        }}>
+                          <div style={{
+                            width: '3px',
+                            height: '16px',
+                            background: model.color,
+                            borderRadius: '2px'
+                          }} />
+                          <span style={{ 
+                            color: model.color,
+                            fontWeight: 600
+                          }}>
+                            {value}% Impact
+                          </span>
+                        </div>
+                      </>,
+                      name
+                    ];
+                  }}
+                  labelFormatter={(label) => {
+                    const factor = data.riskFactorData.find(d => d.factor === label);
+                    const category = factor?.category;
+                    const categoryColor = milestoneCategories[category]?.color;
+                    return (
+                      <div>
+                        <div style={{ 
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          marginBottom: '8px'
+                        }}>
+                          <div style={{
+                            width: '4px',
+                            height: '20px',
+                            background: categoryColor,
+                            borderRadius: '2px'
+                          }} />
+                          <div>
+                            <div style={{ 
+                              fontSize: '14px',
+                              fontWeight: 600,
+                              color: categoryColor
+                            }}>
+                              {category}
+                            </div>
+                            <div style={{ 
+                              fontSize: '13px',
+                              color: '#e5e7eb'
+                            }}>
+                              {label}
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{
+                          padding: '8px',
+                          background: '#374151',
+                          borderRadius: '4px',
+                          marginTop: '8px'
+                        }}>
+                          <div style={{ 
+                            fontSize: '12px',
+                            color: '#9ca3af',
+                            marginBottom: '4px'
+                          }}>
+                            {factor?.description}
+                          </div>
+                          <div style={{ 
+                            fontSize: '12px',
+                            color: '#d1d5db',
+                            fontStyle: 'italic'
+                          }}>
+                            {factor?.impact}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }}
+                />
+                {data.llmModels.map(model => (
+                  <Bar
+                    key={model.id}
+                    dataKey={model.name}
+                    fill={`url(#gradient-${model.id})`}
+                    radius={[0, 4, 4, 0]}
+                    name={model.name}
+                  />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        
+        {/* More Details Bar */}
+        <div className="p-4 bg-gray-800 flex justify-between items-center">
+          <div className="text-gray-300">
+            <span className="text-white font-bold">Prediction Range:</span> 20-36 day recovery
+          </div>
+          <button className="bg-blue-600 text-white px-4 py-2 rounded-md flex items-center hover:bg-blue-700 transition-colors">
+            <span>Full Analysis</span>
+            <ArrowRight className="w-4 h-4 ml-1" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
+  if (visualizationType === "urbanImpact") {
+    return (
+      <div className="bg-gray-900 rounded-xl overflow-hidden shadow-xl border border-gray-800 w-full max-w-3xl mb-4">
+        {/* Header */}
+        {isLoading && !loadedSections.header ? <HeaderSkeleton /> : (
+          <div className={`${getFadeClass('header')}`}>
+            <div className="p-4 border-b border-gray-800">
+              <div className="flex items-center gap-2 mb-2">
+                <Wand2 className="w-5 h-5 text-cyan-400" />
+                <h2 className="text-xl font-bold text-white">Urban Impact Analysis</h2>
+              </div>
+              <p className="text-gray-300 text-sm">
+                {data.preGraphText}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Intervention Details */}
+        {isLoading && !loadedSections.details ? <DetailsSkeleton /> : (
+          <div className={`${getFadeClass('details')}`}>
+            <div className="p-4">
+              <h3 className="font-bold text-white mb-3">Top Interventions</h3>
+              <div className="space-y-4">
+                {data.graphData.interventionDetails.map((intervention, idx) => (
+                  <ClickableCard 
+                    key={idx}
+                    className={`bg-gray-800 rounded-lg p-3 border border-gray-700 ${clickedCard === intervention.name ? 'clicked' : ''}`}
+                    onClick={() => handleCardClick(intervention.name)}
+                  >
+                    <div className="flex justify-between items-center mb-2">
+                      <div className="flex items-center">
+                        {getInterventionIcon(intervention.name)}
+                        <h4 className="font-bold text-white">{intervention.name}</h4>
+                      </div>
+                      <span className="text-sm bg-gray-700 px-2 py-1 rounded text-gray-300">
+                        {intervention.cost}
+                      </span>
+                    </div>
+                    <p className="text-gray-300 text-sm mb-2">{intervention.description}</p>
+                    <div className="text-sm text-gray-400">
+                      <div className="flex items-center gap-1 mb-1">
+                        <Clock className="w-4 h-4" />
+                        <span>{intervention.timeframe}</span>
+                      </div>
+                      <div className="flex flex-wrap justify-between mt-2">
+                        <div className="flex flex-wrap gap-2">
+                          {intervention.benefits.map((benefit, bidx) => (
+                            <span key={bidx} className="bg-gray-700 px-2 py-1 rounded-full text-xs text-cyan-300">
+                              {benefit}
+                            </span>
+                          ))}
+                        </div>
+                        <button 
+                          className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 text-xs rounded-lg transition-colors mt-1"
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent triggering the parent onClick
+                            handleCardClick(intervention.name);
+                          }}
+                        >
+                          <span>View Details</span>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </ClickableCard>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+  
+  if (visualizationType === "serviceCorridors") {
+    return (
+      <div className="bg-gray-900 rounded-xl overflow-hidden shadow-xl border border-gray-800 w-full max-w-3xl mb-4">
+        {/* Header - Render Immediately */}
+        {isLoading && !loadedSections.header ? <HeaderSkeleton /> : (
+          <div className="p-4 border-b border-gray-800">
+            <div className="flex items-center gap-2 mb-2">
+              <Building className="w-5 h-5 text-purple-400" />
+              <h2 className="text-xl font-bold text-white">Service Corridors Analysis</h2>
+            </div>
+            <p className="text-gray-300 text-sm">
+              {data.preGraphText}
+            </p>
+          </div>
+        )}
+
+        {/* Lazy load the more complex parts with useEffect+useState */}
+        <React.Suspense fallback={
+          <div className="p-4 animate-pulse flex justify-center">
+            <div className="h-6 bg-gray-700 rounded w-3/4"></div>
+          </div>
+        }>
+          {/* Development/Adaptive Sites Summary */}
+          {isLoading && !loadedSections.metrics ? <MetricsSkeleton /> : (
+            <div className="p-4 border-b border-gray-800">
+              <h3 className="font-bold text-white mb-3">Site Analysis Summary</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="bg-gray-800 p-3 rounded-lg">
+                  <div className="text-purple-400 text-xl font-bold">{data.graphData.sitesMetrics.totalAdaptiveSites}</div>
+                  <div className="text-gray-400 text-xs">Adaptive Reuse Sites</div>
+                </div>
+                <div className="bg-gray-800 p-3 rounded-lg">
+                  <div className="text-purple-400 text-xl font-bold">{data.graphData.sitesMetrics.totalDevelopmentSites}</div>
+                  <div className="text-gray-400 text-xs">Development Sites</div>
+                </div>
+                <div className="bg-gray-800 p-3 rounded-lg">
+                  <div className="text-purple-400 text-xl font-bold">{data.graphData.sitesMetrics.highPrioritySites}</div>
+                  <div className="text-gray-400 text-xs">High Priority Sites</div>
+                </div>
+                <div className="bg-gray-800 p-3 rounded-lg">
+                  <div className="text-purple-400 text-xl font-bold">{data.graphData.sitesMetrics.estimatedHousingUnits.toLocaleString()}</div>
+                  <div className="text-gray-400 text-xs">Potential Housing Units</div>
+                </div>
+                <div className="bg-gray-800 p-3 rounded-lg">
+                  <div className="text-purple-400 text-xl font-bold">{data.graphData.sitesMetrics.estimatedServiceSpaceSqFt.toLocaleString()}</div>
+                  <div className="text-gray-400 text-xs">Service Space (sq ft)</div>
+                </div>
+                <div className="bg-gray-800 p-3 rounded-lg">
+                  <div className="text-purple-400 text-xl font-bold">{data.graphData.sitesMetrics.averageWalkingDistance} min</div>
+                  <div className="text-gray-400 text-xs">Avg. Walking Distance</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Service Details */}
+          {isLoading && !loadedSections.details ? <DetailsSkeleton /> : (
+            <div className="p-4">
+              <h3 className="font-bold text-white mb-3">Service Development Strategies</h3>
+              <div className="space-y-4">
+                {data.graphData.serviceDetails.map((service, idx) => (
+                  <ClickableCard 
+                    key={idx} 
+                    className={`bg-gray-800 rounded-lg p-3 border border-gray-700 ${clickedCard === service.name ? 'clicked' : ''}`}
+                    onClick={() => handleCardClick(service.name)}
+                  >
+                    <div className="flex justify-between items-center mb-2">
+                      <div className="flex items-center">
+                        <CardIcon className="wave" $bgColor="#8B5CF6">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M6 9h12v7H6z"></path>
+                            <path d="M19 19H5a2 2 0 01-2-2V7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2z"></path>
+                            <path d="M8 19v3"></path>
+                            <path d="M16 19v3"></path>
+                          </svg>
+                        </CardIcon>
+                        <h4 className="font-bold text-white">{service.name}</h4>
+                      </div>
+                      <span className="text-sm bg-purple-900 px-2 py-1 rounded text-purple-200">
+                        {service.impact} Impact
+                      </span>
+                    </div>
+                    <p className="text-gray-300 text-sm mb-2">{service.description}</p>
+                    <div className="text-sm text-gray-400">
+                      <div className="flex items-center gap-1 mb-1">
+                        <Clock className="w-4 h-4" />
+                        <span>{service.timeframe}</span>
+                      </div>
+                      <div className="flex flex-wrap justify-between mt-2">
+                        <div className="flex flex-wrap gap-2">
+                          {service.benefits.map((benefit, bidx) => (
+                            <span key={bidx} className="bg-gray-700 px-2 py-1 rounded-full text-xs text-purple-300">
+                              {benefit}
+                            </span>
+                          ))}
+                        </div>
+                        <button 
+                          className="flex items-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 text-xs rounded-lg transition-colors mt-1"
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent triggering the parent onClick
+                            handleCardClick(service.name);
+                          }}
+                        >
+                          <span>View Corridor</span>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </ClickableCard>
+                ))}
+              </div>
+            </div>
+          )}
+        </React.Suspense>
+      </div>
+    );
+  }
+  
+  if (visualizationType === "infrastructureImprovements") {
+    return (
+      <div className="bg-gray-900 rounded-xl overflow-hidden shadow-xl border border-gray-800 w-full max-w-3xl mb-4">
+        {/* Header */}
+        {isLoading && !loadedSections.header ? <HeaderSkeleton /> : (
+          <div className="p-4 border-b border-gray-800">
+            <div className="flex items-center gap-2 mb-2">
+              <Clock className="w-5 h-5 text-purple-400" />
+              <h2 className="text-xl font-bold text-white">Infrastructure Impact Analysis</h2>
+            </div>
+            <p className="text-gray-300 text-sm">
+              {data.preGraphText}
+            </p>
+          </div>
+        )}
+
+        {/* Improvement Metrics Summary */}
+        {isLoading && !loadedSections.metrics ? <MetricsSkeleton /> : (
+          <div className="p-4 border-b border-gray-800">
+            <h3 className="font-bold text-white mb-3">Impact Metrics</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="bg-gray-800 p-3 rounded-lg">
+                <div className="text-purple-400 text-xl font-bold">{data.graphData.improvementsMetrics.highImpactImprovements}</div>
+                <div className="text-gray-400 text-xs">High-Impact Projects</div>
+              </div>
+              <div className="bg-gray-800 p-3 rounded-lg">
+                <div className="text-purple-400 text-xl font-bold">{data.graphData.improvementsMetrics.estimatedCost}</div>
+                <div className="text-gray-400 text-xs">Estimated Total Cost</div>
+              </div>
+              <div className="bg-gray-800 p-3 rounded-lg">
+                <div className="text-purple-400 text-xl font-bold">{data.graphData.improvementsMetrics.estimatedTimeframe}</div>
+                <div className="text-gray-400 text-xs">Implementation Time</div>
+              </div>
+              <div className="bg-gray-800 p-3 rounded-lg">
+                <div className="text-purple-400 text-xl font-bold">{data.graphData.improvementsMetrics.pedestrianFlow}</div>
+                <div className="text-gray-400 text-xs">Pedestrian Flow Increase</div>
+              </div>
+              <div className="bg-gray-800 p-3 rounded-lg">
+                <div className="text-purple-400 text-xl font-bold">{data.graphData.improvementsMetrics.serviceAccessibility}</div>
+                <div className="text-gray-400 text-xs">Service Accessibility</div>
+              </div>
+              <div className="bg-gray-800 p-3 rounded-lg">
+                <div className="text-purple-400 text-xl font-bold">{data.graphData.improvementsMetrics.communityConnectivity}</div>
+                <div className="text-gray-400 text-xs">Community Connectivity</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Infrastructure Improvements Details */}
+        {isLoading && !loadedSections.details ? <DetailsSkeleton /> : (
+          <div className="p-4">
+            <h3 className="font-bold text-white mb-3">Recommended Improvements</h3>
+            <div className="space-y-4">
+              {data.graphData.infrastructureDetails.map((improvement, idx) => (
+                <div key={idx} className="bg-gray-800 rounded-lg p-3 border border-gray-700">
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="flex items-center">
+                      {getInfrastructureIcon(improvement.name)}
+                      <h4 className="font-bold text-white">{improvement.name}</h4>
+                    </div>
+                    <span className="text-sm bg-purple-900 px-2 py-1 rounded text-purple-200">
+                      {improvement.impact} Impact
+                    </span>
+                  </div>
+                  <p className="text-gray-300 text-sm mb-2">{improvement.description}</p>
+                  <div className="flex flex-wrap justify-between text-sm text-gray-400">
+                    <div className="flex items-center gap-1 mb-1 mr-3">
+                      <Clock className="w-4 h-4" />
+                      <span>{improvement.timeframe}</span>
+                    </div>
+                    <div className="flex items-center gap-1 mb-1">
+                      <span className="text-purple-300 font-semibold">{improvement.cost}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap justify-between mt-2">
+                    <div className="flex flex-wrap gap-2">
+                      {improvement.benefits.map((benefit, bidx) => (
+                        <span key={bidx} className="bg-gray-700 px-2 py-1 rounded-full text-xs text-purple-300">
+                          {benefit}
+                        </span>
+                      ))}
+                    </div>
+                    <button 
+                      className="flex items-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 text-xs rounded-lg transition-colors mt-1"
+                      onClick={() => {
+                        setIsLoading(true);
+                        setLoadedSections({
+                          header: false,
+                          metrics: false,
+                          details: false,
+                          chart: false,
+                          actions: false
+                        });
+                        // Simulate loading a specific infrastructure view
+                        setTimeout(() => {
+                          if (window.mapComponent && typeof window.mapComponent.loadSceneByName === 'function') {
+                            window.mapComponent.loadSceneByName("Infrastructure");
+                          }
+                        }, 500);
+                      }}
+                    >
+                      <span>View Infrastructure</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+  
+  if (visualizationType === "renewableEnergy") {
+    return (
+      <div className="bg-gray-900 rounded-xl overflow-hidden shadow-xl border border-gray-800 w-full max-w-3xl mb-4">
+        {/* Header */}
+        {isLoading && !loadedSections.header ? <HeaderSkeleton /> : (
+          <div className={`${getFadeClass('header')}`}>
+            <div className="p-4 border-b border-gray-800">
+              <div className="flex items-center gap-2 mb-2">
+                <BarChart2 className="w-5 h-5 text-purple-400" />
+                <h2 className="text-xl font-bold text-white">{data.visualization.title}</h2>
+              </div>
+              <p className="text-gray-300 text-sm">
+                {data.preGraphText}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Metrics Summary */}
+        {isLoading && !loadedSections.metrics ? <MetricsSkeleton /> : (
+          <div className={`${getFadeClass('metrics')}`}>
+            <div className="p-4 border-b border-gray-800">
+              <h3 className="font-bold text-white mb-3">Energy Capacity Overview</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-800 p-3 rounded-lg">
+                  <div className="text-purple-400 text-xl font-bold">{data.data.metrics.totalCapacity}</div>
+                  <div className="text-gray-400 text-xs">Current Capacity</div>
+                </div>
+                <div className="bg-gray-800 p-3 rounded-lg">
+                  <div className="text-purple-400 text-xl font-bold">{data.data.metrics.potentialCapacity}</div>
+                  <div className="text-gray-400 text-xs">Growth Potential</div>
+                </div>
+                <div className="bg-gray-800 p-3 rounded-lg">
+                  <div className="text-purple-400 text-xl font-bold">{data.data.metrics.solarPercentage}</div>
+                  <div className="text-gray-400 text-xs">Energy Mix</div>
+                </div>
+                <div className="bg-gray-800 p-3 rounded-lg">
+                  <div className="text-purple-400 text-xl font-bold">{data.data.metrics.peakDemandCoverage}</div>
+                  <div className="text-gray-400 text-xs">Peak Demand Coverage</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bar Chart */}
+        {isLoading && !loadedSections.chart ? <ChartSkeleton /> : (
+          <div className={`${getFadeClass('chart')}`}>
+            <div className="p-4">
+              <div className="h-80 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={data.visualization.data}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 70 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis
+                      dataKey={data.visualization.xAxis.dataKey}
+                      stroke="#9ca3af"
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                      tick={{ fontSize: 12 }}
+                      label={{
+                        value: data.visualization.xAxis.label,
+                        position: 'bottom',
+                        offset: 50,
+                        fill: '#9ca3af'
+                      }}
+                    />
+                    <YAxis
+                      stroke="#9ca3af"
+                      tickFormatter={(value) => `${value} MW`}
+                      tick={{ fontSize: 12 }}
+                      label={{
+                        value: data.visualization.yAxis.label,
+                        angle: -90,
+                        position: 'insideLeft',
+                        offset: -10,
+                        fill: '#9ca3af'
+                      }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#1f2937',
+                        border: '1px solid #374151',
+                        borderRadius: '6px'
+                      }}
+                      formatter={(value) => [`${value} MW`]}
+                    />
+                    <Legend />
+                    {data.visualization.bars.map((bar, index) => (
+                      <Bar
+                        key={bar.dataKey}
+                        dataKey={bar.dataKey}
+                        name={bar.name}
+                        fill={bar.color}
+                        radius={[4, 4, 0, 0]}
+                      />
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              
+              {/* Testing Button */}
+              <div className="mt-4 flex justify-center">
+                <button 
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                  onClick={() => {
+                    setIsLoading(true);
+                    setLoadedSections({
+                      header: false,
+                      metrics: false,
+                      details: false,
+                      chart: false,
+                      actions: false
+                    });
+                  }}
+                >
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Simulate Loading
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Quick Actions */}
+        {isLoading && !loadedSections.actions ? <ActionsSkeleton /> : (
+          <div className={`${getFadeClass('actions')}`}>
+            <div className="p-4 bg-gray-800">
+              <div className="flex flex-wrap gap-2">
+                {data.quickActions?.map((action, idx) => (
+                  <button
+                    key={idx}
+                    className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-lg transition-colors"
+                    onClick={() => handleCardClick(action.prompt)}
+                  >
+                    {getEnergyActionIcon(action.prompt)}
+                    <span>{action.text}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+  
+  return null;
+};
+
+export default VisualizationDisplay; 

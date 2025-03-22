@@ -2,71 +2,50 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { osmLayerIds } from '../utils/osmLayers';
 
-const SceneButton = styled.button`
-  position: absolute;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(15, 23, 42, 0.9);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  color: white;
-  padding: 8px 16px;
-  border-radius: 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  z-index: 1;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: rgba(15, 23, 42, 1);
-    border-color: rgba(148, 163, 184, 0.4);
-  }
-
-  svg {
-    width: 20px;
-    height: 20px;
-  }
-`;
-
-const SceneModal = styled.div`
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 12px;
-  padding: 24px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 80vh;
-  overflow-y: auto;
-  z-index: 1000;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-`;
-
-const ModalOverlay = styled.div`
+// New left sidebar styles
+const SceneSidebar = styled.div`
   position: fixed;
   top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  left: ${props => props.isOpen ? '0' : '-380px'};
+  width: 360px;
+  height: 100vh;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(10px);
+  border-right: 1px solid rgba(148, 163, 184, 0.2);
+  box-shadow: 4px 0 6px -1px rgba(0, 0, 0, 0.1);
+  transition: left 0.3s ease;
   z-index: 999;
+  overflow-y: auto;
+  padding: 24px;
+  
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.3);
+    border-radius: 4px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.5);
+    border-radius: 4px;
+    &:hover {
+      background: rgba(148, 163, 184, 0.7);
+    }
+  }
 `;
 
-const ModalHeader = styled.div`
+const SidebarHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
 `;
 
-const ModalTitle = styled.h2`
+const SidebarTitle = styled.h2`
   color: white;
   margin: 0;
   font-size: 20px;
@@ -77,12 +56,17 @@ const CloseButton = styled.button`
   border: none;
   color: white;
   cursor: pointer;
-  padding: 4px;
-  opacity: 0.7;
+  padding: 8px;
+  opacity: 0.8;
   transition: opacity 0.2s ease;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
   &:hover {
     opacity: 1;
+    background: rgba(255, 255, 255, 0.1);
   }
 `;
 
@@ -112,6 +96,31 @@ const SceneItem = styled.div`
 const SceneName = styled.span`
   color: white;
   font-size: 14px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+`;
+
+const SceneNameInput = styled.input`
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 4px;
+  padding: 4px 8px;
+  color: white;
+  font-size: 14px;
+  width: 100%;
+  margin-bottom: 4px;
+
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+  }
+`;
+
+const SceneTimestamp = styled.div`
+  font-size: 12px;
+  color: rgba(255,255,255,0.5);
+  margin-top: 4px;
 `;
 
 const SceneActions = styled.div`
@@ -122,7 +131,7 @@ const SceneActions = styled.div`
 const ActionButton = styled.button`
   background: none;
   border: none;
-  color: ${props => props.$delete ? '#ff4444' : 'white'};
+  color: ${props => props.$delete ? '#ff4444' : props.$update ? '#4ade80' : 'white'};
   cursor: pointer;
   padding: 4px;
   opacity: 0.7;
@@ -173,14 +182,168 @@ const SceneManager = ({
   map,
   layerStates,
   onLoadScene,
-  onSaveScene
+  onSaveScene,
+  isOpen,
+  onClose
 }) => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [scenes, setScenes] = useState(() => {
     const savedScenes = localStorage.getItem('mapScenes');
     return savedScenes ? JSON.parse(savedScenes) : [];
   });
   const [sceneName, setSceneName] = useState('');
+  const [editingSceneId, setEditingSceneId] = useState(null);
+  const [editingName, setEditingName] = useState('');
+
+  // Expose SceneManager methods globally via window.mapComponent
+  useEffect(() => {
+    console.log('Exposing SceneManager methods globally');
+    
+    if (!window.mapComponent) {
+      window.mapComponent = {};
+    }
+    
+    // Expose a method to load a scene by directly providing the scene object
+    window.mapComponent.loadScene = (scene) => {
+      console.log('Loading scene via global loadScene method:', scene.name);
+      console.log('Roads visible in scene:', scene.toggleStates && scene.toggleStates.showRoads);
+      
+      try {
+        // Call the restoreLayerStates function
+        restoreLayerStates(scene);
+        
+        // Update camera position if available
+        if (map && scene.camera) {
+          console.log('Updating camera position via global loadScene method');
+          map.easeTo({
+            center: [scene.camera.center.lng, scene.camera.center.lat],
+            zoom: scene.camera.zoom,
+            pitch: scene.camera.pitch,
+            bearing: scene.camera.bearing,
+            duration: 1500
+          });
+        }
+        
+        console.log('Scene loaded successfully via global method');
+        return true;
+      } catch (error) {
+        console.error('Error loading scene via global method:', error);
+        return false;
+      }
+    };
+    
+    // Expose a method to find and load a scene by name
+    window.mapComponent.loadSceneByName = (sceneName) => {
+      console.log('Looking for scene by name:', sceneName);
+      
+      try {
+        // First try exact match (case-sensitive)
+        let targetScene = scenes.find(s => s.name === sceneName);
+        
+        if (targetScene) {
+          console.log('Found scene with exact name match:', targetScene.name);
+          return window.mapComponent.loadScene(targetScene);
+        }
+        
+        // Then try case-insensitive exact match
+        targetScene = scenes.find(s => 
+          s.name.toLowerCase() === sceneName.toLowerCase()
+        );
+        
+        if (targetScene) {
+          console.log('Found scene with case-insensitive exact match:', targetScene.name);
+          return window.mapComponent.loadScene(targetScene);
+        }
+        
+        // Check if we're looking for a relative scene (next, previous)
+        if (sceneName.toLowerCase() === 'next' || sceneName.toLowerCase() === 'prev' || sceneName.toLowerCase() === 'previous') {
+          // We need to know what scene is currently loaded to find next/previous
+          // For this example, we'll assume 'v1' is loaded if we can't determine current scene
+          let currentSceneName = 'v1'; // Default assumption
+          
+          // Get scene names and find current index
+          const sceneNames = scenes.map(s => s.name);
+          console.log('Available scenes:', sceneNames);
+          
+          const currentIndex = sceneNames.findIndex(name => 
+            name.toLowerCase() === currentSceneName.toLowerCase()
+          );
+          
+          if (currentIndex !== -1) {
+            // Calculate target index
+            let targetIndex;
+            if (sceneName.toLowerCase() === 'next') {
+              targetIndex = (currentIndex + 1) % scenes.length; // Wrap around to first scene if at the end
+            } else {
+              // Previous scene, handle wrapping to the end
+              targetIndex = currentIndex > 0 ? currentIndex - 1 : scenes.length - 1;
+            }
+            
+            console.log(`Moving from scene at index ${currentIndex} to index ${targetIndex}`);
+            targetScene = scenes[targetIndex];
+            if (targetScene) {
+              console.log(`Found relative ${sceneName} scene:`, targetScene.name);
+              return window.mapComponent.loadScene(targetScene);
+            }
+          }
+        }
+        
+        // If no exact match, try substring match
+        targetScene = scenes.find(s => 
+          s.name.toLowerCase().includes(sceneName.toLowerCase())
+        );
+        
+        if (targetScene) {
+          console.log('Found scene with substring match:', targetScene.name);
+          return window.mapComponent.loadScene(targetScene);
+        }
+        
+        // If sceneName is a number, try to load scene by index
+        const sceneIndex = parseInt(sceneName);
+        if (!isNaN(sceneIndex) && sceneIndex >= 0 && sceneIndex < scenes.length) {
+          targetScene = scenes[sceneIndex];
+          console.log('Found scene by index:', targetScene.name);
+          return window.mapComponent.loadScene(targetScene);
+        }
+        
+        // Special case for specific transitions we know about
+        if (sceneName.toLowerCase() === 'solarpotential' || 
+            sceneName.toLowerCase() === 'solar' || 
+            sceneName.toLowerCase() === 'v2') {
+          // Try looking for any scene with solar/energy in the name as fallback
+          targetScene = scenes.find(s => 
+            s.name.toLowerCase().includes('solar') || 
+            s.name.toLowerCase().includes('energy') ||
+            s.name.toLowerCase().includes('v2')
+          );
+          
+          if (targetScene) {
+            console.log('Found solar/energy scene as fallback:', targetScene.name);
+            return window.mapComponent.loadScene(targetScene);
+          }
+          
+          // If we're currently on v1, try to find v2 or v3
+          const v1Index = scenes.findIndex(s => s.name.toLowerCase() === 'v1');
+          if (v1Index !== -1 && v1Index + 1 < scenes.length) {
+            targetScene = scenes[v1Index + 1];
+            console.log('Found next scene after v1:', targetScene.name);
+            return window.mapComponent.loadScene(targetScene);
+          }
+        }
+        
+        // We couldn't find any matching scene
+        console.warn('No scene found matching criteria:', sceneName);
+        return false;
+      } catch (error) {
+        console.error('Error loading scene by name:', error);
+        return false;
+      }
+    };
+    
+    return () => {
+      // Keep the methods when unmounting to allow other components to use them
+      console.log('SceneManager unmounting, but keeping global methods');
+    };
+  }, [map, scenes]); // Re-attach when map or scenes change
 
   const captureLayerStates = () => {
     console.log('\n=== Capturing Layer States ===');
@@ -205,6 +368,20 @@ const SceneManager = ({
           }
         } catch (error) {
           console.warn(`Could not get visibility for layer ${layerId}:`, error);
+        }
+      });
+      
+      // Explicitly check 3D building layers
+      const buildingLayers = ['osm-buildings-3d', 'buildings-3d-layer'];
+      buildingLayers.forEach(layerId => {
+        try {
+          if (map.getLayer(layerId)) {
+            const visibility = map.getLayoutProperty(layerId, 'visibility');
+            mapLayerStates[layerId] = visibility === 'visible';
+            console.log(`3D Building layer ${layerId} visibility:`, visibility);
+          }
+        } catch (error) {
+          console.warn(`Could not get visibility for 3D building layer ${layerId}:`, error);
         }
       });
     }
@@ -256,7 +433,16 @@ const SceneManager = ({
       showAdaptiveReuse: layerStates.showAdaptiveReuse || false,
       showDevelopmentPotential: layerStates.showDevelopmentPotential || false,
       showNeighborhoodBoundaries: layerStates.showNeighborhoodBoundaries || false,
-      show3DBuildings: layerStates.show3DBuildings || false
+      showNeighborhoodLabels: layerStates.showNeighborhoodLabels || false,
+      showPropertyPrices: layerStates.showPropertyPrices || false,
+      show3DBuildings: layerStates.show3DBuildings || false,
+      
+      // Parks Layer - Now independent of other layers
+      showParks: layerStates.showParks || false,
+      
+      // Employment Layers
+      showEmployment: layerStates.showEmployment || false,
+      showEmploymentLabels: layerStates.showEmploymentLabels || false
     };
 
     console.log('Toggle States:', toggleStates);
@@ -292,7 +478,16 @@ const SceneManager = ({
       showAdaptiveReuse: toggleStates.showPlanningAnalysis && toggleStates.showAdaptiveReuse,
       showDevelopmentPotential: toggleStates.showPlanningAnalysis && toggleStates.showDevelopmentPotential,
       showNeighborhoodBoundaries: toggleStates.showNeighborhoodBoundaries,
-      show3DBuildings: toggleStates.show3DBuildings
+      showNeighborhoodLabels: toggleStates.showNeighborhoodBoundaries && toggleStates.showNeighborhoodLabels,
+      showPropertyPrices: toggleStates.showPropertyPrices,
+      show3DBuildings: toggleStates.show3DBuildings,
+      
+      // Parks Layer - Now independent of other layers
+      showParks: toggleStates.showParks,
+      
+      // Employment Layers
+      showEmployment: toggleStates.showEmployment,
+      showEmploymentLabels: toggleStates.showEmployment && toggleStates.showEmploymentLabels
     };
 
     return {
@@ -347,7 +542,6 @@ const SceneManager = ({
       setScenes(updatedScenes);
       localStorage.setItem('mapScenes', JSON.stringify(updatedScenes));
       setSceneName('');
-      setIsModalOpen(false);
       console.log('Scene saved successfully');
     } catch (error) {
       console.error('Error saving scene:', error);
@@ -414,8 +608,140 @@ const SceneManager = ({
       showAdaptiveReuse: scene.toggleStates.showPlanningAnalysis && scene.toggleStates.showAdaptiveReuse,
       showDevelopmentPotential: scene.toggleStates.showPlanningAnalysis && scene.toggleStates.showDevelopmentPotential,
       showNeighborhoodBoundaries: scene.toggleStates.showNeighborhoodBoundaries,
-      show3DBuildings: scene.toggleStates.show3DBuildings
+      showNeighborhoodLabels: scene.toggleStates.showNeighborhoodBoundaries && scene.toggleStates.showNeighborhoodLabels,
+      showPropertyPrices: scene.toggleStates.showPropertyPrices,
+      show3DBuildings: scene.toggleStates.show3DBuildings,
+      
+      // Parks Layer - Now independent of other layers
+      showParks: scene.toggleStates.showParks,
+      
+      // Employment Layers
+      showEmployment: scene.toggleStates.showEmployment,
+      showEmploymentLabels: scene.toggleStates.showEmployment && scene.toggleStates.showEmploymentLabels
     };
+
+    // Reset background colors if Zoning Data layer is being turned off
+    if (!cleanedToggleStates.showZoningLayer && map) {
+      console.log('Resetting background colors for non-zoning view');
+      try {
+        map.setPaintProperty('background', 'background-color', '#111111');
+        map.setPaintProperty('water', 'fill-color', '#222222');
+        map.setPaintProperty('land', 'background-color', '#111111');
+        
+        ['road-primary', 'road-secondary', 'road-street'].forEach(layer => {
+          if (map.getLayer(layer)) {
+            map.setPaintProperty(layer, 'line-color', '#333333');
+          }
+        });
+      } catch (error) {
+        console.warn('Could not reset background colors:', error);
+      }
+    }
+
+    // Handle road network visibility
+    if (map) {
+      console.log('Handling road network visibility:', {
+        showTransportation: cleanedToggleStates.showTransportation,
+        showRoads: cleanedToggleStates.showRoads
+      });
+
+      try {
+        // Get road layer IDs from Mapbox style
+        const roadLayers = ['road-simple', 'bridge-simple', 'tunnel-simple', 'road-label-simple'];
+        const ROAD_COLOR = '#4A90E2'; // Light blue for roads
+        
+        // Get all map layers
+        const layers = map.getStyle().layers;
+        
+        // Find and style any layer that matches our road layer patterns
+        for (const layer of layers) {
+          const layerId = layer.id;
+          if (roadLayers.some(pattern => layerId.toLowerCase().includes(pattern.toLowerCase()))) {
+            console.log(`Setting road layer ${layerId} visibility:`, cleanedToggleStates.showRoads);
+            
+            try {
+              // Set visibility based on showRoads state
+              map.setLayoutProperty(layerId, 'visibility', cleanedToggleStates.showRoads ? 'visible' : 'none');
+              
+              // Only style the layer if it's visible
+              if (cleanedToggleStates.showRoads) {
+                // Style line layers
+                if (layer.type === 'line') {
+                  map.setPaintProperty(layerId, 'line-width', 1);
+                  map.setPaintProperty(layerId, 'line-color', ROAD_COLOR);
+                } 
+                // Style label layers
+                else if (layer.type === 'symbol' && layerId.includes('label')) {
+                  map.setPaintProperty(layerId, 'text-color', ROAD_COLOR);
+                  map.setPaintProperty(layerId, 'text-halo-width', 2);
+                }
+              }
+            } catch (error) {
+              console.warn(`Could not handle road layer ${layerId}:`, error);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error handling road network visibility:', error);
+      }
+    }
+
+    // Special handling for park layers
+    console.log('\n=== Parks Layer State ===');
+    console.log('Parks Layer Enabled:', scene.toggleStates.showParks);
+    
+    // Handle park layers visibility through a dedicated function call
+    // This assumes there's a toggleParkLayers function accessible
+    try {
+      if (cleanedToggleStates.showParks) {
+        console.log('Restoring park layers to visible state');
+        // Handle park layer visibility
+        const parkLayers = [
+          'park', 'park-label', 'national-park', 'golf-course', 'pitch', 'grass'
+        ];
+        
+        parkLayers.forEach(layerId => {
+          if (map && map.getLayer(layerId)) {
+            try {
+              map.setLayoutProperty(layerId, 'visibility', 'visible');
+              if (map.getPaintProperty(layerId, 'fill-color') !== undefined) {
+                map.setPaintProperty(layerId, 'fill-color', '#2a9d2a');
+                map.setPaintProperty(layerId, 'fill-opacity', 0.45);
+              }
+            } catch (error) {
+              console.warn(`Could not style park layer ${layerId}:`, error);
+            }
+          }
+        });
+        
+        // Handle natural layer if it exists
+        if (map && map.getLayer('natural')) {
+          try {
+            if (!map._originalNaturalFilter) {
+              map._originalNaturalFilter = map.getFilter('natural') || ['all'];
+            }
+            
+            map.setFilter('natural', ['all', 
+              map._originalNaturalFilter,
+              ['any',
+                ['==', ['get', 'class'], 'park'],
+                ['==', ['get', 'class'], 'garden'],
+                ['==', ['get', 'class'], 'forest'],
+                ['==', ['get', 'class'], 'wood']
+              ]
+            ]);
+            
+            map.setLayoutProperty('natural', 'visibility', 'visible');
+            map.setPaintProperty('natural', 'fill-color', '#2a9d2a');
+            map.setPaintProperty('natural', 'fill-opacity', 0.45);
+          } catch (error) {
+            console.warn('Could not filter natural layer:', error);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Error handling park layers:', error);
+    }
 
     // Restore layer visibility based on the scene state
     if (map && scene.mapLayerStates) {
@@ -433,6 +759,29 @@ const SceneManager = ({
 
     // Restore toggle states in the UI
     console.log('Restoring toggle states:', cleanedToggleStates);
+    
+    // Special handling for 3D building layers
+    if (map && cleanedToggleStates.show3DBuildings !== undefined) {
+      console.log('3D Buildings enabled in scene:', cleanedToggleStates.show3DBuildings);
+      
+      // Check for building layers in mapLayerStates
+      const buildingLayers = ['osm-buildings-3d', 'buildings-3d-layer'];
+      
+      if (scene.mapLayerStates) {
+        buildingLayers.forEach(layerId => {
+          try {
+            if (map.getLayer(layerId)) {
+              const targetVisibility = cleanedToggleStates.show3DBuildings ? 'visible' : 'none';
+              console.log(`Setting 3D building layer ${layerId} visibility to ${targetVisibility}`);
+              map.setLayoutProperty(layerId, 'visibility', targetVisibility);
+            }
+          } catch (error) {
+            console.warn(`Could not set visibility for 3D building layer ${layerId}:`, error);
+          }
+        });
+      }
+    }
+    
     onLoadScene(cleanedToggleStates);
   };
 
@@ -440,6 +789,7 @@ const SceneManager = ({
     try {
       console.log('\n=== Loading Scene ===');
       console.log('Scene Name:', scene.name);
+      console.log('Roads visible in scene:', scene.toggleStates.showRoads);
 
       // Restore layer states
       restoreLayerStates(scene);
@@ -461,10 +811,78 @@ const SceneManager = ({
         }
       }
 
-      setIsModalOpen(false);
+      onClose(); // Close the sidebar after loading
       console.log('Scene loaded successfully');
     } catch (error) {
       console.error('Error loading scene:', error);
+    }
+  };
+
+  const handleUpdateScene = (e, sceneId) => {
+    e.stopPropagation();
+    try {
+      console.log('\n=== Updating Scene ===');
+      console.log('Scene ID:', sceneId);
+
+      // Find the scene to update
+      const sceneToUpdate = scenes.find(scene => scene.id === sceneId);
+      if (!sceneToUpdate) {
+        console.error('Scene not found');
+        return;
+      }
+
+      console.log('Scene to update:', sceneToUpdate.name);
+
+      // Capture current layer states
+      const { toggleStates, mapLayerStates } = captureLayerStates();
+      
+      // Specific logging for 3D buildings state
+      console.log('3D Buildings state captured:', {
+        'toggleState': toggleStates.show3DBuildings,
+        'layerStates': {
+          'osm-buildings-3d': mapLayerStates['osm-buildings-3d'],
+          'buildings-3d-layer': mapLayerStates['buildings-3d-layer']
+        },
+        'current3DState': layerStates.show3DBuildings
+      });
+
+      // Capture camera state
+      let cameraState = null;
+      if (map) {
+        try {
+          cameraState = {
+            center: map.getCenter(),
+            zoom: map.getZoom(),
+            pitch: map.getPitch(),
+            bearing: map.getBearing()
+          };
+          console.log('Camera State:', cameraState);
+        } catch (error) {
+          console.warn('Could not get camera state:', error);
+        }
+      }
+
+      // Create updated scene with same ID and name but new state
+      const updatedScene = {
+        ...sceneToUpdate,
+        timestamp: new Date().toISOString(),
+        toggleStates,
+        mapLayerStates,
+        camera: cameraState
+      };
+
+      console.log('Updated Scene Data:', updatedScene);
+
+      // Update the scenes array
+      const updatedScenes = scenes.map(scene => 
+        scene.id === sceneId ? updatedScene : scene
+      );
+      
+      setScenes(updatedScenes);
+      localStorage.setItem('mapScenes', JSON.stringify(updatedScenes));
+      console.log('Scene updated successfully');
+    } catch (error) {
+      console.error('Error updating scene:', error);
     }
   };
 
@@ -483,82 +901,192 @@ const SceneManager = ({
     }
   };
 
+  const handleEditName = (e, sceneId, currentName) => {
+    e.stopPropagation();
+    setEditingSceneId(sceneId);
+    setEditingName(currentName);
+  };
+
+  const handleSaveName = (e, sceneId) => {
+    e.stopPropagation();
+    if (!editingName.trim()) return;
+
+    try {
+      console.log('\n=== Updating Scene Name ===');
+      console.log('Scene ID:', sceneId);
+      console.log('New Name:', editingName);
+
+      const updatedScenes = scenes.map(scene => 
+        scene.id === sceneId 
+          ? { ...scene, name: editingName.trim() }
+          : scene
+      );
+      
+      setScenes(updatedScenes);
+      localStorage.setItem('mapScenes', JSON.stringify(updatedScenes));
+      setEditingSceneId(null);
+      setEditingName('');
+      console.log('Scene name updated successfully');
+    } catch (error) {
+      console.error('Error updating scene name:', error);
+    }
+  };
+
+  const handleCancelEdit = (e) => {
+    e.stopPropagation();
+    setEditingSceneId(null);
+    setEditingName('');
+  };
+
   return (
-    <>
-      <SceneButton onClick={() => setIsModalOpen(true)}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
-        Scenes
-      </SceneButton>
+    <SceneSidebar isOpen={isOpen}>
+      <SidebarHeader>
+        <SidebarTitle>Saved Scenes</SidebarTitle>
+        <CloseButton onClick={onClose} title="Close scenes panel">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="24" height="24">
+            <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" />
+          </svg>
+        </CloseButton>
+      </SidebarHeader>
 
-      {isModalOpen && (
-        <>
-          <ModalOverlay onClick={() => setIsModalOpen(false)} />
-          <SceneModal onClick={(e) => e.stopPropagation()}>
-            <ModalHeader>
-              <ModalTitle>Saved Scenes</ModalTitle>
-              <CloseButton onClick={() => setIsModalOpen(false)}>
-                <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
-                  <path d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </CloseButton>
-            </ModalHeader>
+      <SaveSceneForm onSubmit={handleSaveScene}>
+        <SaveSceneInput
+          type="text"
+          placeholder="Enter scene name..."
+          value={sceneName}
+          onChange={(e) => setSceneName(e.target.value)}
+        />
+        <SaveSceneButton type="submit">Save</SaveSceneButton>
+      </SaveSceneForm>
 
-            <SaveSceneForm onSubmit={handleSaveScene}>
-              <SaveSceneInput
-                type="text"
-                placeholder="Enter scene name..."
-                value={sceneName}
-                onChange={(e) => setSceneName(e.target.value)}
-              />
-              <SaveSceneButton type="submit">Save Scene</SaveSceneButton>
-            </SaveSceneForm>
-
-            <SceneList>
-              {scenes.map(scene => (
-                <SceneItem 
-                  key={scene.id}
-                  onClick={() => handleSceneClick(scene)}
-                >
-                  <SceneName>
-                    {scene.name}
-                    <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginTop: '4px' }}>
-                      {new Date(scene.timestamp).toLocaleString()}
+      <SceneList>
+        {scenes.length === 0 ? (
+          <div style={{ color: 'rgba(255,255,255,0.7)', textAlign: 'center', padding: '20px 0' }}>
+            No saved scenes yet. Save your current view to create a scene.
+          </div>
+        ) : (
+          scenes.map(scene => (
+            <SceneItem 
+              key={scene.id}
+              onClick={() => handleSceneClick(scene)}
+            >
+              <SceneName>
+                {editingSceneId === scene.id ? (
+                  <>
+                    <SceneNameInput
+                      value={editingName}
+                      onChange={(e) => setEditingName(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleSaveName(e, scene.id);
+                        } else if (e.key === 'Escape') {
+                          handleCancelEdit(e);
+                        }
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                      <button
+                        onClick={(e) => handleSaveName(e, scene.id)}
+                        style={{
+                          background: '#3b82f6',
+                          border: 'none',
+                          borderRadius: '4px',
+                          padding: '2px 8px',
+                          color: 'white',
+                          fontSize: '12px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={handleCancelEdit}
+                        style={{
+                          background: 'none',
+                          border: '1px solid rgba(148, 163, 184, 0.2)',
+                          borderRadius: '4px',
+                          padding: '2px 8px',
+                          color: 'white',
+                          fontSize: '12px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Cancel
+                      </button>
                     </div>
-                  </SceneName>
-                  <SceneActions onClick={(e) => e.stopPropagation()}>
-                    <ActionButton
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSceneClick(scene);
-                      }}
-                      title="Load scene"
-                    >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
-                        <path d="M5 12h14M12 5l7 7-7 7" />
-                      </svg>
-                    </ActionButton>
-                    <ActionButton
-                      $delete
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteScene(e, scene.id);
-                      }}
-                      title="Delete scene"
-                    >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
-                        <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </ActionButton>
-                  </SceneActions>
-                </SceneItem>
-              ))}
-            </SceneList>
-          </SceneModal>
-        </>
-      )}
-    </>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {scene.name}
+                      <button
+                        onClick={(e) => handleEditName(e, scene.id, scene.name)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'rgba(255,255,255,0.5)',
+                          cursor: 'pointer',
+                          padding: '2px 4px',
+                          fontSize: '12px',
+                          opacity: 0.7
+                        }}
+                        title="Edit scene name"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                          <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+                          <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+                        </svg>
+                      </button>
+                    </div>
+                    <SceneTimestamp>
+                      {new Date(scene.timestamp).toLocaleString()}
+                    </SceneTimestamp>
+                  </>
+                )}
+              </SceneName>
+              <SceneActions onClick={(e) => e.stopPropagation()}>
+                <ActionButton
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSceneClick(scene);
+                  }}
+                  title="Load scene"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
+                    <path d="M5 12h14M12 5l7 7-7 7" />
+                  </svg>
+                </ActionButton>
+                <ActionButton
+                  $update
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleUpdateScene(e, scene.id);
+                  }}
+                  title="Update scene with current map state"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
+                    <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </ActionButton>
+                <ActionButton
+                  $delete
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteScene(e, scene.id);
+                  }}
+                  title="Delete scene"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
+                    <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </ActionButton>
+              </SceneActions>
+            </SceneItem>
+          ))
+        )}
+      </SceneList>
+    </SceneSidebar>
   );
 };
 

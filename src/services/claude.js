@@ -340,7 +340,7 @@ export const MOCK_RESPONSES = {
           poiCount: 45,
           poiTypes: ["substation", "transformer", "solar_array", "smart_meter"]
         },
-        preGraphText: "As we analyze the infrastructure data, Brickell stands out as Miami's premier energy hub. Let's examine the power distribution network that makes this possible.",
+        preGraphText: "As we analyzed the infrastructure data, Brickell stood out as Miami's premier energy hub. Let's examine the power distribution network that makes this possible.",
         postGraphText: "The data reveals an impressive power infrastructure network, with over 45 critical nodes in this district alone. The area's modernization has attracted major investments in smart grid technology and renewable energy systems.",
         quickActions: [
           {
@@ -934,14 +934,14 @@ export const MOCK_RESPONSES = {
 
 console.log("Mock response structure:", JSON.parse(MOCK_RESPONSES["Find neighborhoods with the fastest housing growth"].content[0].text));
 
-// Increase back to original 2.5 seconds for better animation flow
-const simulateDelay = () => new Promise(resolve => setTimeout(resolve, 2500));
+// Utility function to simulate API delay for standard flows
+const simulateDelay = () => new Promise(resolve => setTimeout(resolve, 500));
 
-// For quick actions, we can make it even faster (0.75 seconds)
-const simulateQuickActionDelay = () => new Promise(resolve => setTimeout(resolve, 750));
+// Utility function to simulate API delay for quick actions (slightly faster)
+const simulateQuickActionDelay = () => new Promise(resolve => setTimeout(resolve, 300));
 
-// For quick graph actions, make it super fast (250ms)
-const simulateGraphActionDelay = () => new Promise(resolve => setTimeout(resolve, 250));
+// Utility function for graph actions (even faster)
+export const simulateGraphActionDelay = () => new Promise(resolve => setTimeout(resolve, 150));
 
 // Add this new constant for loading states
 export const LOADING_STEPS = [
@@ -1360,4 +1360,937 @@ export const handleQuickAction = async (action, map, setMessages, setIsLoading) 
     isUser: false,
     content: parsedResponse
   }]);
+};
+
+// Updated loading steps for the urban impact question
+export const URBAN_IMPACT_LOADING_STEPS = [
+  {
+    icon: "map",
+    text: "Analyzing urban density patterns..."
+  },
+  {
+    icon: "route",
+    text: "Identifying transit corridors and nodes..."
+  }, 
+  {
+    icon: "building",
+    text: "Mapping commercial and mixed-use zones..."
+  },
+  {
+    icon: "search",
+    text: "Locating underutilized parcels..."
+  },
+  {
+    icon: "connection",
+    text: "Evaluating connectivity between neighborhoods..."
+  },
+  {
+    icon: "home",
+    text: "Calculating potential housing impact..."
+  },
+  {
+    icon: "target",
+    text: "Synthesizing opportunity areas..."
+  }
+];
+
+// Improved graph data for urban impact analysis with real estate and development focus
+export const URBAN_IMPACT_GRAPH_DATA = {
+  impactGraphs: [
+    {
+      type: "priorityMatrix",
+      title: "Downtown LA Impact Priority Matrix",
+      data: [
+        { name: "Adaptive Reuse - Historic Core", effort: 60, impact: 92, category: "Housing", roi: 3.2 },
+        { name: "Transit Corridors - Skid Row", effort: 55, impact: 85, category: "Transit", roi: 2.8 },
+        { name: "Mobility Infrastructure", effort: 45, impact: 78, category: "Pedestrian", roi: 2.5 },
+        { name: "Green Alley Network", effort: 40, impact: 65, category: "Green", roi: 2.2 },
+        { name: "Service Hub Access Points", effort: 30, impact: 72, category: "Safety", roi: 2.9 },
+        { name: "Mixed-Use Conversion - Arts District", effort: 65, impact: 88, category: "Housing", roi: 2.4 },
+        { name: "Smart Intersection Upgrades", effort: 50, impact: 68, category: "Traffic", roi: 1.9 },
+        { name: "Facade Improvements - Broadway", effort: 35, impact: 60, category: "Aesthetic", roi: 2.1 },
+        { name: "Protected Bike Lanes", effort: 45, impact: 75, category: "Bike", roi: 2.3 }
+      ]
+    },
+    {
+      type: "benefitsBreakdown",
+      title: "Downtown LA Benefits Breakdown",
+      data: {
+        "Housing Accessibility": 35,
+        "Economic Revitalization": 28,
+        "Pedestrian Mobility": 18,
+        "Community Services": 12,
+        "Environmental Impact": 7
+      }
+    },
+    {
+      type: "adaptiveReuseOpportunities",
+      title: "Downtown LA Adaptive Reuse Opportunity Index",
+      data: [
+        { id: "Site 1", name: "San Fernando Building", score: 92, category: "Housing", potentialROI: 3.1, timeToCompletion: 18 },
+        { id: "Site 2", name: "Pacific Electric Building", score: 88, category: "Mixed-Use", potentialROI: 2.9, timeToCompletion: 24 },
+        { id: "Site 3", name: "Skid Row North", score: 85, category: "Housing", potentialROI: 3.0, timeToCompletion: 16 },
+        { id: "Site 4", name: "Arts District Warehouses", score: 83, category: "Mixed-Use", potentialROI: 2.7, timeToCompletion: 20 },
+        { id: "Site 5", name: "Central Corridor", score: 81, category: "Commercial", potentialROI: 2.6, timeToCompletion: 14 },
+        { id: "Site 6", name: "Historic Core Buildings", score: 90, category: "Housing", potentialROI: 3.2, timeToCompletion: 22 },
+        { id: "Site 7", name: "Broadway Theater District", score: 86, category: "Cultural", potentialROI: 2.8, timeToCompletion: 26 },
+        { id: "Site 8", name: "DTLA 2040 Zone", score: 89, category: "Mixed-Use", potentialROI: 3.0, timeToCompletion: 24 },
+        { id: "Site 9", name: "East Gateway", score: 79, category: "Commercial", potentialROI: 2.5, timeToCompletion: 18 },
+        { id: "Site 10", name: "South Connector", score: 77, category: "Mixed-Use", potentialROI: 2.4, timeToCompletion: 20 }
+      ]
+    },
+    {
+      type: "developmentTimeline",
+      title: "Downtown LA Implementation Timeline vs ROI Potential",
+      data: [
+        { type: "Historic Building Adaptive Reuse", months: 18, roi: 38, investment: 650 },
+        { type: "Skid Row Mobility Infrastructure", months: 10, roi: 32, investment: 320 },
+        { type: "Transit Corridor Development", months: 14, roi: 30, investment: 480 },
+        { type: "Arts District Revitalization", months: 20, roi: 35, investment: 580 },
+        { type: "Green Alley Network", months: 12, roi: 28, investment: 270 }
+      ]
+    }
+  ],
+  adaptiveReuseMetrics: {
+    totalSites: 14,
+    averageOpportunityScore: 83.5,
+    potentialHousingUnits: 2800,
+    estimatedJobsCreated: 1250,
+    walkabilityImprovement: 48,
+    averageROI: 2.85,
+    averageCompletionTime: 21.5
+  },
+  interventionDetails: [
+    {
+      name: "Adaptive Reuse - DTLA Historic Buildings",
+      description: "Repurposing historic buildings in downtown Los Angeles under the Adaptive Reuse Ordinance to create mixed-use spaces with residential units and commercial areas.",
+      cost: "$4.2M - $6.5M",
+      timeframe: "16-24 months",
+      benefits: ["Create 800+ housing units", "Preserve architectural heritage", "70% increase in property values"]
+    },
+    {
+      name: "Central City Transit Corridors",
+      description: "Developing pedestrian-friendly transit corridors in Central City North connecting Skid Row to Union Station with improved sidewalks, lighting, and rest areas.",
+      cost: "$3.8M - $5.2M",
+      timeframe: "12-18 months",
+      benefits: ["58% increase in pedestrian flow", "42% reduction in transit time", "Enhanced accessibility to services"]
+    },
+    {
+      name: "Skid Row Mobility Infrastructure",
+      description: "Enhancing mobility infrastructure in Skid Row under the DTLA Mobility Improvement Plan (MIP), with focus on accessibility for high-need populations.",
+      cost: "$2.1M - $3.7M",
+      timeframe: "8-12 months",
+      benefits: ["45% improved service navigation", "Creates safe waiting areas", "Increases service utilization by 42%"]
+    }
+  ]
+};
+
+// Handle the specialized urban impact question
+export const handleUrbanImpactQuestion = async (message, messages, setMessages, setSkeletonLoading) => {
+  try {
+    // Ensure we have the setMessages function
+    if (!setMessages || typeof setMessages !== 'function') {
+      console.error("setMessages is not a function", typeof setMessages);
+      return;
+    }
+    
+    // Check if messages is passed correctly
+    if (!messages) {
+      console.warn("Messages not provided to handleUrbanImpactQuestion, initializing as empty array");
+      messages = [];
+    }
+    
+    // Define our phases explicitly
+    window.currentLoadingPhase = "PHASE_1_ICONS";
+    console.log("Starting loading phase 1: Loading steps with icons");
+    
+    // Set a new message directly
+    setMessages(prev => {
+      // Ensure prev is an array
+      const prevMessages = Array.isArray(prev) ? prev : [];
+      // We'll filter out any previous processing steps
+      return prevMessages.filter(msg => 
+        !msg.content || !msg.content.processingStep
+      );
+    });
+
+    // Phase 1: Show loading steps with loading icons
+    await addProcessingStep(messages, setMessages, "chart", "Analyzing your question...", true, "svg", "pulse");
+    await delay(600);
+    await addProcessingStep(messages, setMessages, "map", "Gathering geo-spatial data...", true, "svg", "bounce");
+    await delay(600);
+    await addProcessingStep(messages, setMessages, "search", "Identifying relevant interventions...", true, "svg", "wave");
+    await delay(600);
+    await addProcessingStep(messages, setMessages, "target", "Generating impact analysis...", true, "svg", "rotate");
+    
+    // Make sure phase 1 is visible for at least 1.5 seconds total
+    await delay(1500);
+    
+    // Clear processing steps before starting phase 2
+    setMessages(prev => {
+      // Ensure prev is an array
+      const prevMessages = Array.isArray(prev) ? prev : [];
+      // Remove any processing steps
+      return prevMessages.filter(msg => 
+        !msg.content || !msg.content.processingStep
+      );
+    });
+    
+    // Ensure complete separation with a short delay
+    await delay(200);
+
+    // Phase 2: Skeleton loading
+    window.currentLoadingPhase = "PHASE_2_SKELETON";
+    console.log("Starting loading phase 2: Skeleton loading");
+    
+    // Add a message with the skeleton
+    setMessages(prev => {
+      // Ensure prev is an array
+      const prevMessages = Array.isArray(prev) ? prev : [];
+      return [
+        ...prevMessages.filter(msg => !msg.content || !msg.content.showSkeleton), // Remove any existing skeleton
+        {
+          role: "assistant",
+          content: {
+            showSkeleton: true,
+            preGraphText: "Analyzing data...",
+            inSkeletonPhase: true // Add an explicit flag to help with conditional rendering
+          }
+        }
+      ];
+    });
+    
+    // Generate the content with the API
+    try {
+      // Actual API call - keeping this code unchanged
+      const userQuestion = typeof message === 'string' ? message.trim() : "Where could minimal changes create maximum impact?";
+      const response = await urbanImpactAnalysis(userQuestion);
+      
+      // Final phase - displaying actual content
+      window.currentLoadingPhase = "PHASE_3_CONTENT";
+      console.log("Starting loading phase 3: Showing content");
+      
+      // Add a small delay before removing skeleton and showing content
+      await delay(400);
+      
+      // Update message state with actual content
+      setMessages(prev => {
+        // Ensure prev is an array
+        const prevMessages = Array.isArray(prev) ? prev : [];
+        return [
+          ...prevMessages.filter(msg => !msg.content || !msg.content.showSkeleton), // Remove skeleton
+          {
+            role: "assistant",
+            content: {
+              text: response.explanation,
+              graphData: response,
+            }
+          }
+        ];
+      });
+      
+      // Reset the loading phase when complete
+      window.currentLoadingPhase = null;
+      
+    } catch (error) {
+      console.error("Error in urban impact analysis:", error);
+      window.currentLoadingPhase = null;
+      setMessages(prev => {
+        // Ensure prev is an array
+        const prevMessages = Array.isArray(prev) ? prev : [];
+        return [
+          ...prevMessages.filter(msg => !msg.content || !msg.content.showSkeleton), // Remove skeleton
+          {
+            role: "assistant",
+            content: {
+              text: "I'm sorry, I encountered an error analyzing the urban impact. Please try again."
+            }
+          }
+        ];
+      });
+    }
+  } catch (error) {
+    console.error("Error in handleUrbanImpactQuestion:", error);
+    window.currentLoadingPhase = null;
+    
+    if (typeof setMessages === 'function') {
+      setMessages(prev => {
+        // Ensure prev is an array
+        const prevMessages = Array.isArray(prev) ? prev : [];
+        return [
+          ...prevMessages,
+          {
+            role: "assistant",
+            content: {
+              text: "I'm sorry, I encountered an error analyzing the urban impact. Please try again."
+            }
+          }
+        ];
+      });
+    }
+  }
+};
+
+// Data for the service corridors response
+export const SERVICE_CORRIDORS_DATA = {
+  corridorGraphs: [
+    {
+      type: "serviceHubs",
+      title: "Service Corridor Potential",
+      data: [
+        { name: "Skid Row North", potential: 85, timeframe: 6, category: "Mixed-Use", cost: "$1.2M" },
+        { name: "Central Corridor", potential: 78, timeframe: 12, category: "Housing", cost: "$3.6M" },
+        { name: "East Gateway", potential: 72, timeframe: 8, category: "Commercial", cost: "$2.2M" },
+        { name: "South Connector", potential: 65, timeframe: 10, category: "Social Services", cost: "$1.8M" },
+        { name: "West Access", potential: 70, timeframe: 9, category: "Healthcare", cost: "$2.5M" }
+      ]
+    }
+  ],
+  sitesMetrics: {
+    totalAdaptiveSites: 43,
+    totalDevelopmentSites: 58,
+    highPrioritySites: 17,
+    estimatedHousingUnits: 1680,
+    estimatedServiceSpaceSqFt: 125000,
+    averageWalkingDistance: 6.5,
+    averageCompletionTime: 24
+  },
+  serviceDetails: [
+    {
+      name: "Mixed-Use Development",
+      description: "Converting 12 underutilized buildings into mixed-use developments with ground-floor services and upper-level housing.",
+      impact: "High",
+      timeframe: "18-30 months",
+      benefits: ["Creates 620+ housing units", "Provides 45,000 sq ft of service space", "Improves neighborhood cohesion"]
+    },
+    {
+      name: "Healthcare Access Points",
+      description: "Establishing 8 accessible healthcare facilities strategically placed along major pedestrian routes.",
+      impact: "Medium-High",
+      timeframe: "12-18 months",
+      benefits: ["Reduces ER visits by 35%", "Increases preventative care access", "Supports ongoing treatment"]
+    },
+    {
+      name: "Infrastructure & Data Centers",
+      description: "Developing 3 high-capacity data centers with integrated renewable energy systems and smart grid connectivity.",
+      impact: "High",
+      timeframe: "15-24 months",
+      benefits: ["Powers digital infrastructure", "Creates sustainable energy hub", "Enables smart city services"]
+    }
+  ]
+};
+
+// Handle the service corridors question
+export const handleServiceCorridorsQuestion = async (map, setMessages, setIsLoading) => {
+  try {
+    setIsLoading(true);
+    
+    const effectiveMap = map || window.mapComponent?.map;
+    
+    if (!effectiveMap) {
+      console.error("No map object available");
+      return;
+    }
+    
+    // Add user question to messages
+    setMessages(prevMessages => [
+      ...prevMessages,
+      {
+        isUser: true,
+        content: "Show potential service corridors around Skid Row"
+      }
+    ]);
+    
+    // Try to load the Zoning scene immediately if it exists
+    console.log("Attempting to load Zoning scene");
+    if (window.mapComponent && typeof window.mapComponent.loadSceneByName === 'function') {
+      const sceneLoaded = window.mapComponent.loadSceneByName("Zoning");
+      console.log("Scene load attempt result:", sceneLoaded);
+    }
+    
+    // Show only one loading step with a shorter delay
+    await simulateGraphActionDelay(); // Use the faster 250ms delay
+    
+    setMessages(prevMessages => [
+      ...prevMessages,
+      {
+        isUser: false,
+        content: { 
+          processingStep: true,
+          icon: 'transit',
+          iconType: 'svg',
+          animation: 'wave',
+          text: "Analyzing service corridor opportunities...",
+          useWhiteIcons: true
+        }
+      }
+    ]);
+    
+    // Return the response with service corridors data
+    setMessages(prevMessages => {
+      // First remove all processing step messages
+      const withoutProcessingSteps = prevMessages.filter(msg => 
+        !msg.content || !msg.content.processingStep
+      );
+      
+      // Find the most recent user message
+      const mostRecentUserMsgIndex = withoutProcessingSteps.findIndex(
+        msg => msg.isUser && msg.content === "Show potential service corridors around Skid Row"
+      );
+      
+      return [
+        ...withoutProcessingSteps.slice(0, mostRecentUserMsgIndex >= 0 ? mostRecentUserMsgIndex + 1 : withoutProcessingSteps.length),
+        { 
+          isUser: false, 
+          content: {
+            preGraphText: "I've identified strategic service corridor opportunities around Skid Row that could significantly improve service access and neighborhood connectivity. Analysis shows three key approaches:",
+            graphData: SERVICE_CORRIDORS_DATA,
+            postGraphText: "Analysis of 43 adaptive reuse sites and 58 development potential sites reveals opportunities to create efficient service corridors connecting Skid Row to surrounding neighborhoods. The highest potential exists in the northern section, where implementing mixed-use developments would create both housing and service spaces. Converting underutilized buildings and strategically placing healthcare access points would significantly improve quality of life while requiring moderate investment compared to new construction.",
+            followUpSuggestions: [
+              {
+                text: "What infrastructure improvements would have most impact?",
+                prompt: "What infrastructure improvements would have most impact in Skid Row?",
+                animationDelay: 0.1
+              },
+              {
+                text: "Map South Park's daily necessity gaps",
+                prompt: "Map South Park's daily necessity gaps",
+                animationDelay: 0.2
+              },
+              {
+                text: "Show priority pedestrian corridors connecting to Union Station",
+                prompt: "Show priority pedestrian corridors connecting to Union Station",
+                animationDelay: 0.3
+              }
+            ]
+          } 
+        }
+      ];
+    });
+  } catch (error) {
+    console.error("Error in handleServiceCorridorsQuestion:", error);
+    setMessages(prevMessages => [
+      ...prevMessages,
+      {
+        isUser: false,
+        content: { 
+          preGraphText: "I'm sorry, I encountered an error while analyzing service corridors around Skid Row. Please try again.",
+          postGraphText: "You may want to check if all map layers are loaded correctly or try refreshing the page."
+        }
+      }
+    ]);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+// Data for the infrastructure improvements response
+export const INFRASTRUCTURE_IMPROVEMENTS_DATA = {
+  improvementsMetrics: {
+    highImpactImprovements: 6,
+    estimatedCost: "$28.2M",
+    estimatedTimeframe: "18-36 months",
+    pedestrianFlow: "+62%",
+    serviceAccessibility: "+48%",
+    communityConnectivity: "+57%"
+  },
+  improvementDetails: [
+    {
+      name: "Central Transit Connector",
+      description: "Developing a pedestrian-friendly transit corridor connecting Skid Row to Union Station with improved sidewalks, lighting, and rest areas.",
+      impact: "Very High",
+      timeframe: "24-30 months",
+      cost: "$8.5M",
+      benefits: ["Reduces transit time by 18 minutes", "Increases pedestrian safety", "Connects to employment hubs"]
+    },
+    {
+      name: "5th Street Revitalization",
+      description: "Transforming 5th Street into a multi-modal corridor with separated bike lanes, wider sidewalks, and pedestrian plazas.",
+      impact: "High",
+      timeframe: "18-24 months",
+      cost: "$6.3M",
+      benefits: ["Creates neighborhood gateway", "Improves business accessibility", "Provides safe cycling route"]
+    },
+    {
+      name: "Green Alley Network",
+      description: "Converting underutilized alleys into green pedestrian pathways with permeable surfaces, native plantings, and pedestrian amenities.",
+      impact: "Medium-High",
+      timeframe: "12-18 months",
+      cost: "$4.2M",
+      benefits: ["Adds 2.8 miles of pedestrian paths", "Reduces urban heat island effect", "Creates micro-mobility network"]
+    },
+    {
+      name: "Service Hub Access Points",
+      description: "Establishing clearly defined, well-lit access points to service hubs with wayfinding elements and safety features.",
+      impact: "High",
+      timeframe: "8-12 months",
+      cost: "$3.7M",
+      benefits: ["Improves service navigation", "Creates safe waiting areas", "Increases utilization by 42%"]
+    },
+    {
+      name: "Smart Intersection Upgrades",
+      description: "Implementing pedestrian-priority intersections with extended crossing times, safety islands, and smart traffic management.",
+      impact: "Medium",
+      timeframe: "10-14 months",
+      cost: "$5.5M",
+      benefits: ["Reduces pedestrian accidents by 38%", "Prioritizes walking mobility", "Improves ADA accessibility"]
+    }
+  ]
+};
+
+// Handle the infrastructure improvements question
+export const handleInfrastructureImprovementsQuestion = async (map, setMessages, setIsLoading) => {
+  try {
+    setIsLoading(true);
+    
+    const effectiveMap = map || window.mapComponent?.map;
+    
+    if (!effectiveMap) {
+      console.error("No map object available");
+      return;
+    }
+    
+    // Add user question to messages
+    setMessages(prevMessages => [
+      ...prevMessages,
+      {
+        isUser: true,
+        content: "What infrastructure improvements would have most impact in Skid Row?"
+      }
+    ]);
+    
+    // Try to load the "Next" scene immediately if it exists
+    console.log("Attempting to load Next scene for infrastructure improvements");
+    if (window.mapComponent && typeof window.mapComponent.loadSceneByName === 'function') {
+      const sceneLoaded = window.mapComponent.loadSceneByName("Next");
+      console.log("Next scene load attempt result:", sceneLoaded);
+    }
+    
+    // Show a quick loading step
+    await simulateGraphActionDelay();
+    
+    setMessages(prevMessages => [
+      ...prevMessages,
+      {
+        isUser: false,
+        content: { 
+          processingStep: true,
+          icon: 'infrastructure',
+          iconType: 'svg',
+          animation: 'rotate',
+          text: "Analyzing infrastructure improvement options...",
+          useWhiteIcons: true
+        }
+      }
+    ]);
+    
+    // Return the response with infrastructure improvements data
+    setMessages(prevMessages => {
+      // First remove all processing step messages
+      const withoutProcessingSteps = prevMessages.filter(msg => 
+        !msg.content || !msg.content.processingStep
+      );
+      
+      // Find the most recent user message
+      const mostRecentUserMsgIndex = withoutProcessingSteps.findIndex(
+        msg => msg.isUser && msg.content === "What infrastructure improvements would have most impact in Skid Row?"
+      );
+      
+      return [
+        ...withoutProcessingSteps.slice(0, mostRecentUserMsgIndex >= 0 ? mostRecentUserMsgIndex + 1 : withoutProcessingSteps.length),
+        { 
+          isUser: false, 
+          content: {
+            preGraphText: "Based on my analysis of Skid Row's connectivity challenges, these infrastructure improvements would create the greatest positive impact for residents and service providers:",
+            graphData: {
+              infrastructureDetails: INFRASTRUCTURE_IMPROVEMENTS_DATA.improvementDetails,
+              improvementsMetrics: INFRASTRUCTURE_IMPROVEMENTS_DATA.improvementsMetrics
+            },
+            postGraphText: "The Central Transit Connector would have the highest overall impact by significantly reducing travel time between Skid Row and key transit hubs. When combined with the 5th Street Revitalization, these improvements would create a comprehensive mobility network that enhances both north-south and east-west connectivity. The Green Alley Network provides a cost-effective opportunity to expand pedestrian paths while adding much-needed green space to the area.",
+            followUpSuggestions: [
+              {
+                text: "Show potential funding sources for these improvements",
+                prompt: "What are potential funding sources for Skid Row infrastructure improvements?",
+                animationDelay: 0.1
+              },
+              {
+                text: "Compare to similar initiatives in other cities",
+                prompt: "Show examples of similar infrastructure improvements in other cities",
+                animationDelay: 0.2
+              },
+              {
+                text: "What community engagement would be needed?",
+                prompt: "What community engagement would be needed for Skid Row improvements?",
+                animationDelay: 0.3
+              }
+            ]
+          } 
+        }
+      ];
+    });
+  } catch (error) {
+    console.error("Error in handleInfrastructureImprovementsQuestion:", error);
+    setMessages(prevMessages => [
+      ...prevMessages,
+      {
+        isUser: false,
+        content: { 
+          preGraphText: "I'm sorry, I encountered an error while analyzing infrastructure improvements for Skid Row. Please try again.",
+          postGraphText: "You may want to check if all map layers are loaded correctly or try refreshing the page."
+        }
+      }
+    ]);
+  } finally {
+    setIsLoading(false);
+  }
 }; 
+
+// Add new data constant for renewable energy capacity
+export const INFRASTRUCTURE_DATA = {
+  renewableCapacity: [
+    { neighborhood: "Valley Glen", capacity: 45.2, potential: 78.5, type: "Solar" },
+    { neighborhood: "North Hills", capacity: 42.8, potential: 72.3, type: "Mixed" },
+    { neighborhood: "Chatsworth", capacity: 38.5, potential: 65.7, type: "Solar" },
+    { neighborhood: "Sherman Oaks", capacity: 35.7, potential: 58.9, type: "Mixed" },
+    { neighborhood: "Van Nuys", capacity: 33.2, potential: 61.4, type: "Solar" },
+    { neighborhood: "Studio City", capacity: 31.8, potential: 54.2, type: "Mixed" },
+    { neighborhood: "Northridge", capacity: 29.4, potential: 52.8, type: "Solar" },
+    { neighborhood: "Panorama City", capacity: 27.9, potential: 49.5, type: "Solar" },
+    { neighborhood: "Granada Hills", capacity: 26.3, potential: 47.1, type: "Mixed" },
+    { neighborhood: "Sun Valley", capacity: 24.8, potential: 45.6, type: "Solar" }
+  ],
+  metrics: {
+    totalCapacity: "335.6 MW",
+    potentialCapacity: "+586.0 MW (174% increase)",
+    solarPercentage: "65% Solar, 35% Mixed Energy",
+    peakDemandCoverage: "42% of Peak Grid Demand"
+  }
+};
+
+// Add handler function for infrastructure visualization
+export const handleInfrastructureVisualization = async (map, setMessages, setIsLoading) => {
+  console.log("🚀 Starting handleInfrastructureVisualization");
+  try {
+    setIsLoading(true);
+    
+    // Add custom message to indicate we're viewing infrastructure data
+    console.log("👤 Adding user message");
+    setMessages(prevMessages => [
+      ...prevMessages,
+      {
+        isUser: true,
+        content: "View Infrastructure & Data Centers Analysis"
+      }
+    ]);
+    
+    // Show loading step
+    await simulateGraphActionDelay();
+    
+    console.log("⏳ Adding processing message");
+    setMessages(prevMessages => [
+      ...prevMessages,
+      {
+        isUser: false,
+        content: { 
+          processingStep: true,
+          icon: 'analytics',
+          iconType: 'svg',
+          animation: 'pulse',
+          text: "Analyzing renewable energy infrastructure...",
+          useWhiteIcons: true
+        }
+      }
+    ]);
+    
+    // Return the response with infrastructure data
+    console.log("📊 Preparing visualization data with type 'renewableEnergy'");
+    
+    // Create the content payload
+    const contentPayload = {
+      type: "renewableEnergy",
+      preGraphText: "Based on our analysis of renewable energy infrastructure across Los Angeles neighborhoods, here's a detailed breakdown of current capacity and future potential:",
+      data: INFRASTRUCTURE_DATA,
+      visualization: {
+        title: "Neighborhood Renewable Energy Capacity",
+        data: INFRASTRUCTURE_DATA.renewableCapacity.sort((a, b) => b.capacity - a.capacity),
+        xAxis: {
+          dataKey: "neighborhood",
+          label: "Neighborhoods"
+        },
+        yAxis: {
+          label: "Capacity (MW)"
+        },
+        bars: [
+          {
+            dataKey: "capacity",
+            name: "Current Capacity",
+            color: "#8b5cf6"
+          },
+          {
+            dataKey: "potential",
+            name: "Potential Capacity",
+            color: "#c084fc"
+          }
+        ]
+      },
+      postGraphText: "The data reveals significant opportunities for expanding renewable energy capacity, particularly in Valley Glen and North Hills. Key findings:\n\n" +
+                   `• Total Current Capacity: ${INFRASTRUCTURE_DATA.metrics.totalCapacity}\n` +
+                   `• Potential Growth: ${INFRASTRUCTURE_DATA.metrics.potentialCapacity}\n` +
+                   `• Solar Adoption: ${INFRASTRUCTURE_DATA.metrics.solarPercentage}\n` +
+                   `• Peak Demand Coverage: ${INFRASTRUCTURE_DATA.metrics.peakDemandCoverage}\n\n` +
+                   "The proposed data centers would be strategically placed to maximize grid efficiency while maintaining sustainable power distribution through integrated renewable sources.",
+      quickActions: [
+        {
+          text: "Solar Potential Analysis",
+          prompt: "SHOW_SOLAR_POTENTIAL",
+          icon: "☀️",
+          description: "View detailed solar capacity"
+        },
+        {
+          text: "Grid Integration",
+          prompt: "SHOW_GRID_INTEGRATION",
+          icon: "🔌",
+          description: "Smart grid connectivity"
+        },
+        {
+          text: "Future Projections",
+          prompt: "SHOW_ENERGY_FORECAST",
+          icon: "📈",
+          description: "2024-2025 capacity forecast"
+        }
+      ]
+    };
+    
+    console.log("📝 Content payload:", contentPayload);
+    
+    setMessages(prevMessages => {
+      // Remove processing step messages
+      const withoutProcessingSteps = prevMessages.filter(msg => 
+        !msg.content || !msg.content.processingStep
+      );
+      
+      // Find the most recent user message
+      const mostRecentUserMsgIndex = withoutProcessingSteps.findIndex(
+        msg => msg.isUser && msg.content === "View Infrastructure & Data Centers Analysis"
+      );
+      
+      const newMessages = [
+        ...withoutProcessingSteps.slice(0, mostRecentUserMsgIndex >= 0 ? mostRecentUserMsgIndex + 1 : withoutProcessingSteps.length),
+        { 
+          isUser: false, 
+          content: contentPayload
+        }
+      ];
+      
+      console.log("✅ Final message structure:", newMessages[newMessages.length - 1]);
+      return newMessages;
+    });
+  } catch (error) {
+    console.error("Error in handleInfrastructureVisualization:", error);
+    setMessages(prevMessages => [
+      ...prevMessages,
+      {
+        isUser: false,
+        content: { 
+          type: "renewableEnergy",
+          preGraphText: "I'm sorry, I encountered an error while analyzing the infrastructure data. Please try again.",
+          postGraphText: "You may want to check if all map layers are loaded correctly or try refreshing the page."
+        }
+      }
+    ]);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+// Utility function for delays with promises
+export const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Utility function to add processing steps in the message UI
+export const addProcessingStep = async (messages, setMessages, icon, text, useWhiteIcons = false, iconType = null, animation = null) => {
+  // Ensure we have the setMessages function
+  if (!setMessages || typeof setMessages !== 'function') {
+    console.error("setMessages is not a function in addProcessingStep", typeof setMessages);
+    return;
+  }
+  
+  setMessages(prev => {
+    // Ensure prev is an array
+    const prevMessages = Array.isArray(prev) ? prev : [];
+    
+    // Find existing assistant message with processing steps
+    const existingAssistantMessageIndex = prevMessages.findIndex(msg => 
+      msg.role === "assistant" && msg.content && Array.isArray(msg.content.steps)
+    );
+    
+    if (existingAssistantMessageIndex >= 0) {
+      // Update existing message with a new step
+      const updatedMessages = [...prevMessages];
+      updatedMessages[existingAssistantMessageIndex] = {
+        ...updatedMessages[existingAssistantMessageIndex],
+        content: {
+          ...updatedMessages[existingAssistantMessageIndex].content,
+          steps: [
+            ...updatedMessages[existingAssistantMessageIndex].content.steps,
+            { icon, text, useWhiteIcons, iconType, animation }
+          ]
+        }
+      };
+      return updatedMessages;
+    } else {
+      // Create a new consolidated message with steps array
+      return [
+        ...prevMessages.filter(msg => 
+          !msg.content || !msg.content.processingStep
+        ),
+        {
+          role: "assistant",
+          content: { 
+            steps: [{ icon, text, useWhiteIcons, iconType, animation }],
+            processingStep: true
+          }
+        }
+      ];
+    }
+  });
+  
+  // Return a promise that resolves after a short delay
+  return delay(100);
+};
+
+// Mock function for urban impact analysis API call
+export const urbanImpactAnalysis = async (question) => {
+  // Simulate API delay
+  await delay(1500);
+  
+  // Return mock data
+  return {
+    explanation: "I've identified key areas in Downtown Los Angeles where strategic interventions could yield maximum impact with minimal changes. Based on analysis of adaptive reuse potential and development opportunities, three specific interventions stand out.",
+    interventionDetails: [
+      {
+        name: "Adaptive Reuse - DTLA Historic Buildings",
+        description: "Repurposing historic buildings in downtown Los Angeles under the Adaptive Reuse Ordinance to create mixed-use spaces with residential units and commercial areas.",
+        cost: "$4.2M - $6.5M",
+        timeframe: "16-24 months",
+        benefits: ["Create 800+ housing units", "Preserve architectural heritage", "70% increase in property values"]
+      },
+      {
+        name: "Central City Transit Corridors",
+        description: "Developing pedestrian-friendly transit corridors in Central City North connecting Skid Row to Union Station with improved sidewalks, lighting, and rest areas.",
+        cost: "$3.8M - $5.2M",
+        timeframe: "12-18 months",
+        benefits: ["58% increase in pedestrian flow", "42% reduction in transit time", "Enhanced accessibility to services"]
+      },
+      {
+        name: "Skid Row Mobility Infrastructure",
+        description: "Enhancing mobility infrastructure in Skid Row under the DTLA Mobility Improvement Plan (MIP), with focus on accessibility for high-need populations.",
+        cost: "$2.1M - $3.7M",
+        timeframe: "8-12 months",
+        benefits: ["45% improved service navigation", "Creates safe waiting areas", "Increases service utilization by 42%"]
+      }
+    ],
+    impactGraphs: [
+      {
+        type: "priorityMatrix",
+        title: "Downtown LA Impact Priority Matrix",
+        data: [
+          { name: "Adaptive Reuse - Historic Core", effort: 60, impact: 92, category: "Housing", roi: 3.2 },
+          { name: "Transit Corridors - Skid Row", effort: 55, impact: 85, category: "Transit", roi: 2.8 },
+          { name: "Mobility Infrastructure", effort: 45, impact: 78, category: "Pedestrian", roi: 2.5 },
+          { name: "Green Alley Network", effort: 40, impact: 65, category: "Green", roi: 2.2 },
+          { name: "Service Hub Access Points", effort: 30, impact: 72, category: "Safety", roi: 2.9 }
+        ]
+      }
+    ]
+  };
+};
+
+// Handle neighborhood selection and display in the AIChatPanel
+export const handleNeighborhoodSelection = async (neighborhoodData, setMessages) => {
+  try {
+    if (!setMessages || typeof setMessages !== 'function') {
+      console.warn("setMessages is not a function in handleNeighborhoodSelection");
+      return;
+    }
+
+    // Brief delay to simulate processing
+    await simulateQuickActionDelay();
+    
+    // Format the content for the neighborhood data
+    const neighborhoodMessage = {
+      isUser: true,
+      content: `Show development sites in ${neighborhoodData.name}`
+    };
+    
+    // Create adaptive reuse site cards
+    const adaptiveReuseCards = neighborhoodData.adaptiveReuse.map((marker, index) => {
+      const mockScore = Math.floor(60 + Math.random() * 35); // Random score between 60-95
+      const mockSources = [
+        'LA City Planning Dept',
+        'Community Redevelopment Agency',
+        'Housing Innovation Challenge',
+        'Mayor\'s Office',
+        'LA County Housing Authority',
+        'Urban Land Institute'
+      ];
+      const source = mockSources[index % mockSources.length];
+      
+      return {
+        type: 'Adaptive Reuse',
+        title: `Adaptive Reuse Site ${index + 1}`,
+        description: marker.properties?.description || 'No description available',
+        score: marker.properties?.quality_score || marker.properties?.score || mockScore,
+        source: marker.properties?.source || source
+      };
+    });
+    
+    // Create development potential site cards
+    const developmentCards = neighborhoodData.development.map((marker, index) => {
+      const mockScore = Math.floor(55 + Math.random() * 35); // Random score between 55-90
+      const mockSources = [
+        'City Planning Commission',
+        'Dept of Building & Safety',
+        'LA City Council District Office',
+        'Metro Transit Authority',
+        'Private Developer Submission',
+        'Economic Development Dept'
+      ];
+      const source = mockSources[index % mockSources.length];
+      
+      return {
+        type: 'Development',
+        title: `Development Site ${index + 1}`,
+        description: marker.properties?.description || 'No description available',
+        score: marker.properties?.quality_score || marker.properties?.score || mockScore,
+        source: marker.properties?.source || source
+      };
+    });
+    
+    // Create response content object
+    const responseContent = {
+      neighborhoodData: {
+        name: neighborhoodData.name,
+        totalSites: neighborhoodData.markerCount,
+        adaptiveReuseSites: adaptiveReuseCards,
+        developmentSites: developmentCards
+      },
+      preGraphText: `Analyzing development opportunities in ${neighborhoodData.name}...`,
+      postGraphText: `Found ${neighborhoodData.markerCount} total development sites (${neighborhoodData.adaptiveReuse.length} adaptive reuse, ${neighborhoodData.development.length} new development).`
+    };
+    
+    // Add messages to the chat panel
+    setMessages(prevMessages => [
+      ...prevMessages,
+      neighborhoodMessage,
+      {
+        isUser: false,
+        content: responseContent
+      }
+    ]);
+    
+    return true;
+  } catch (error) {
+    console.error('Error handling neighborhood selection:', error);
+    return false;
+  }
+};

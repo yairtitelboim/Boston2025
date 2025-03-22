@@ -32,7 +32,7 @@ const LegendColor = styled.div`
   background: ${props => props.color};
 `;
 
-const NeighborhoodBoundaries = ({ map, visible, planningData, onNeighborhoodClick }) => {
+const NeighborhoodBoundaries = ({ map, visible, showLabels = false, planningData, onNeighborhoodClick }) => {
   useEffect(() => {
     if (!map?.current || !planningData) return;
 
@@ -105,7 +105,8 @@ const NeighborhoodBoundaries = ({ map, visible, planningData, onNeighborhoodClic
         });
 
         // Add layers with initial visibility state
-        const visibility = visible ? 'visible' : 'none';
+        const boundariesVisibility = visible ? 'visible' : 'none';
+        const labelsVisibility = (visible && showLabels) ? 'visible' : 'none';
 
         // Add fill layer
         map.current.addLayer({
@@ -113,7 +114,7 @@ const NeighborhoodBoundaries = ({ map, visible, planningData, onNeighborhoodClic
           type: 'fill',
           source: 'neighborhood-boundaries',
           layout: {
-            visibility
+            visibility: boundariesVisibility
           },
           paint: {
             'fill-color': [
@@ -143,7 +144,7 @@ const NeighborhoodBoundaries = ({ map, visible, planningData, onNeighborhoodClic
           type: 'line',
           source: 'neighborhood-boundaries',
           layout: {
-            visibility
+            visibility: boundariesVisibility
           },
           paint: {
             'line-color': 'white',
@@ -165,7 +166,7 @@ const NeighborhoodBoundaries = ({ map, visible, planningData, onNeighborhoodClic
           type: 'symbol',
           source: 'neighborhood-boundaries',
           layout: {
-            visibility,
+            visibility: labelsVisibility,
             'text-field': [
               'format',
               ['get', 'name'],
@@ -358,13 +359,13 @@ const NeighborhoodBoundaries = ({ map, visible, planningData, onNeighborhoodClic
   useEffect(() => {
     if (!map?.current) return;
     
-    const layers = [
+    // Boundaries and outline layers depend only on the 'visible' prop
+    const boundaryLayers = [
       'neighborhood-boundaries-outline',
-      'neighborhood-boundaries-layer',
-      'neighborhood-labels'
+      'neighborhood-boundaries-layer'
     ];
 
-    layers.forEach(layerId => {
+    boundaryLayers.forEach(layerId => {
       if (map.current.getLayer(layerId)) {
         map.current.setLayoutProperty(
           layerId,
@@ -373,7 +374,16 @@ const NeighborhoodBoundaries = ({ map, visible, planningData, onNeighborhoodClic
         );
       }
     });
-  }, [map, visible]);
+
+    // Labels layer depends on both 'visible' and 'showLabels' props
+    if (map.current.getLayer('neighborhood-labels')) {
+      map.current.setLayoutProperty(
+        'neighborhood-labels',
+        'visibility',
+        (visible && showLabels) ? 'visible' : 'none'
+      );
+    }
+  }, [map, visible, showLabels]);
 
   if (!visible) return null;
 

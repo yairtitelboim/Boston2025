@@ -37,7 +37,7 @@ const styles = {
             type: 'line',
             paint: {
                 'line-color': '#9B59B6',
-                'line-width': 2,
+                'line-width': 1,
                 'line-opacity': 0.8
             }
         }
@@ -55,7 +55,7 @@ const styles = {
             type: 'line',
             paint: {
                 'line-color': '#27AE60',
-                'line-width': 3
+                'line-width': 1.6
             }
         },
         parking: {
@@ -76,7 +76,7 @@ const styles = {
             type: 'line',
             paint: {
                 'line-color': '#E67E22',
-                'line-width': 2,
+                'line-width': 0.7,
                 'line-opacity': 0.7
             }
         },
@@ -256,6 +256,11 @@ export function toggleOSMLayer(map, category, subcategory, visible, color = null
             loadOSMData(map).then(() => {
                 if (map.getLayer(layerId)) {
                     updateLayerVisibility(map, layerId, visible, color);
+                    
+                    // If this is a bike layer and it's being made visible, move it to the top
+                    if (visible && category === 'bikeInfra') {
+                        moveBikeLayerToTop(map, layerId);
+                    }
                 } else {
                     console.error(`Failed to load layer ${layerId}`);
                 }
@@ -264,8 +269,41 @@ export function toggleOSMLayer(map, category, subcategory, visible, color = null
         }
         
         updateLayerVisibility(map, layerId, visible, color);
+        
+        // If this is a bike layer and it's being made visible, move it to the top
+        if (visible && category === 'bikeInfra') {
+            moveBikeLayerToTop(map, layerId);
+        }
     } catch (error) {
         console.error(`Error toggling layer ${layerId}:`, error);
+    }
+}
+
+function moveBikeLayerToTop(map, layerId) {
+    try {
+        console.log(`Moving bike layer ${layerId} to top of rendering stack`);
+        
+        // Get all layers
+        const style = map.getStyle();
+        const layers = style.layers;
+        
+        // Find the topmost non-bike OSM layer to place bike layers above
+        // We need to identify what should be the reference layer
+        
+        // First, try to find a good reference layer
+        const symbolLayers = layers.filter(layer => layer.type === 'symbol');
+        if (symbolLayers.length > 0) {
+            // Use a symbol layer as reference, as they're typically rendered on top
+            const referenceLayer = symbolLayers[symbolLayers.length - 1].id;
+            map.moveLayer(layerId, referenceLayer);
+            console.log(`Moved ${layerId} above ${referenceLayer}`);
+        } else {
+            // If no symbol layer is found, just move to the top
+            map.moveLayer(layerId);
+            console.log(`Moved ${layerId} to the top of all layers`);
+        }
+    } catch (error) {
+        console.warn(`Failed to move bike layer ${layerId} to top:`, error);
     }
 }
 

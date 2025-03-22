@@ -45,5 +45,20 @@ export const LayerIcons = {
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M3 21h18M9 8h6M7 21V8l5-5l5 5v13M9 15h6" />
     </svg>
+  ),
+  Property: () => (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 3L4 9v12h16V9l-8-6zm0 2.7L18 10v8H6v-8l6-4.3z"/>
+    </svg>
+  ),
+  Nature: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 4L8 8M16 8L12 4M12 4v7M17.2 14c.2-.5.8-1 2-1 1.7 0 3 1.3 3 3 0 1.7-1.3 3-3 3h-1M17 19c0-5.5-2.5-10-5-10s-5 4.5-5 10M6.8 14c-.2-.5-.8-1-2-1-1.7 0-3 1.3-3 3 0 1.7 1.3 3 3 3h1" />
+    </svg>
+  ),
+  Business: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M3 21h18M3 7h18M3 7v14M21 7v14M6 7V4h12v3M6 11h12M6 15h12" />
+    </svg>
   )
 }; 

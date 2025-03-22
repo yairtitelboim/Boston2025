@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { osmLayerIds, loadOSMData, toggleOSMLayer } from '../utils/osmLayers';
 import * as turf from '@turf/turf';
 import NeighborhoodBoundaries from './NeighborhoodBoundaries';
 import PlanningAnalysisLayer from './PlanningAnalysisLayer';
+import PropertyPricesLayer from './PropertyPricesLayer';
+import EmploymentLayer from './EmploymentLayer';
 import { SidePopup } from './SidePopup';
 import { LayerIcons } from './icons/LayerIcons';
 import { useLayerToggles } from '../hooks/useLayerToggles';
@@ -25,6 +27,27 @@ import {
   SubLayerContainer,
   SubLayer
 } from './styles/LayerToggleStyles';
+import SceneManager from './SceneManager';
+import { handleNeighborhoodSelection } from '../../../services/claude';
+
+// Array of Mapbox green spaces layers
+const parkLayers = [
+  'park',
+  'park-label',
+  'national-park',
+  'golf-course',
+  'pitch',
+  'grass'
+];
+
+// More specific filter for natural areas that are actually parks
+const naturalParkFilter = [
+  'any',
+  ['==', ['get', 'class'], 'park'],
+  ['==', ['get', 'class'], 'garden'],
+  ['==', ['get', 'class'], 'forest'],
+  ['==', ['get', 'class'], 'wood']
+];
 
 const LayerToggle = ({
   map,
@@ -43,20 +66,35 @@ const LayerToggle = ({
   showRoads,
   setShowRoads,
   showNeighborhoodBoundaries,
-  setShowNeighborhoodBoundaries
+  setShowNeighborhoodBoundaries,
+  showPropertyPrices,
+  setShowPropertyPrices,
+  showEmployment = false,
+  setShowEmployment,
+  showParks = false,
+  setShowParks,
+  showNeighborhoodLabels = false,
+  setShowNeighborhoodLabels,
+  showEmploymentLabels = false,
+  setShowEmploymentLabels,
+  showLocalZones = false,
+  setShowLocalZones,
+  showLocalZoneBoundaries = false,
+  setShowLocalZoneBoundaries,
+  showLocalZoneLabels = false,
+  setShowLocalZoneLabels
 }) => {
   const [selectedNeighborhood, setSelectedNeighborhood] = useState(null);
   const [neighborhoodMarkers, setNeighborhoodMarkers] = useState(null);
   const [planningData, setPlanningData] = useState(null);
+  const [isSceneSidebarOpen, setIsSceneSidebarOpen] = useState(false);
 
   const {
     showOSMTransit,
     showOSMBike,
     showOSMPedestrian,
-    searchTerm,
     expandedCategories,
     is3DLoading,
-    setSearchTerm,
     toggleCategory,
     handleToggle,
     handleOSMTransitToggle,
@@ -93,6 +131,89 @@ const LayerToggle = ({
     setPlanningData(data);
   };
 
+  // Function to toggle visibility and styling of park layers
+  const toggleParkLayers = (visible) => {
+    if (!map.current) return;
+    
+    parkLayers.forEach(layerId => {
+      if (map.current.getLayer(layerId)) {
+        try {
+          // Set visibility
+          map.current.setLayoutProperty(
+            layerId,
+            'visibility',
+            visible ? 'visible' : 'none'
+          );
+          
+          // Set color for fill layers
+          const layer = map.current.getLayer(layerId);
+          if (layer && layer.type === 'fill') {
+            map.current.setPaintProperty(
+              layerId, 
+              'fill-color', 
+              visible ? '#2a9d2a' : '#050f08'
+            );
+            map.current.setPaintProperty(
+              layerId, 
+              'fill-opacity', 
+              visible ? 0.45 : 0.3
+            );
+          }
+          
+          // Handle symbol layers with background color
+          if (layer && layer.type === 'symbol' && 
+              map.current.getPaintProperty(layerId, 'background-color') !== undefined) {
+            map.current.setPaintProperty(
+              layerId, 
+              'background-color', 
+              visible ? '#2a9d2a' : '#050f08'
+            );
+          }
+        } catch (error) {
+          console.warn(`Could not style park layer ${layerId}:`, error);
+        }
+      }
+    });
+    
+    // Apply filter to the 'natural' layer if it exists to only show park-like natural areas
+    if (map.current.getLayer('natural')) {
+      try {
+        if (visible) {
+          // Store the original filter if we haven't stored it yet
+          if (!map.current._originalNaturalFilter) {
+            map.current._originalNaturalFilter = map.current.getFilter('natural') || ['all'];
+          }
+          
+          // Apply our custom filter for natural areas that are parks
+          map.current.setFilter('natural', ['all', 
+            map.current._originalNaturalFilter,
+            naturalParkFilter
+          ]);
+          
+          // Set visibility and style
+          map.current.setLayoutProperty('natural', 'visibility', 'visible');
+          map.current.setPaintProperty('natural', 'fill-color', '#2a9d2a');
+          map.current.setPaintProperty('natural', 'fill-opacity', 0.45);
+        } else {
+          // Restore original filter and style
+          if (map.current._originalNaturalFilter) {
+            map.current.setFilter('natural', map.current._originalNaturalFilter);
+          }
+          map.current.setLayoutProperty('natural', 'visibility', 'none');
+          map.current.setPaintProperty('natural', 'fill-color', '#050f08');
+          map.current.setPaintProperty('natural', 'fill-opacity', 0.3);
+        }
+      } catch (error) {
+        console.warn('Could not filter natural layer:', error);
+      }
+    }
+  };
+
+  // Effect to handle park layers visibility when showParks changes
+  useEffect(() => {
+    toggleParkLayers(showParks);
+  }, [showParks]);
+
   return (
     <>
       <LayerToggleContainer $isCollapsed={isLayerMenuCollapsed}>
@@ -108,12 +229,78 @@ const LayerToggle = ({
           </CollapseButton>
         </LayerHeader>
 
-        <SearchInput
-          type="text"
-          placeholder="Search layers..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+        {/* Scenes Section */}
+        <CategorySection>
+          <CategoryHeader 
+            onClick={() => setIsSceneSidebarOpen(true)}
+            style={{ background: 'rgba(59, 130, 246, 0.2)', borderColor: 'rgba(59, 130, 246, 0.2)' }}
+          >
+            <CategoryIcon>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="24" height="24">
+                <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h-4.5m-9 0H5a2 2 0 01-2-2V7a2 2 0 012-2h1.5m9 0h4.5a2 2 0 012 2v.5M9 7h1m5 0h1M9 11h1m5 0h1M9 15h1m5 0h1M9 19h1m5 0h1" />
+              </svg>
+            </CategoryIcon>
+            <CategoryTitle>Saved Scenes</CategoryTitle>
+            <div style={{ marginLeft: 'auto' }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
+                <path d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </CategoryHeader>
+        </CategorySection>
+
+        {/* Pedestrian Network - Moved to top */}
+        <CategorySection>
+          <CategoryHeader 
+            onClick={() => toggleCategory('pedestrianNetwork')}
+            $isExpanded={expandedCategories.pedestrianNetwork}
+          >
+            <CategoryIcon><LayerIcons.Pedestrian /></CategoryIcon>
+            <CategoryTitle>Pedestrian Network</CategoryTitle>
+            <ToggleSwitch>
+              <input
+                type="checkbox"
+                checked={showOSMPedestrian}
+                onChange={() => handleOSMPedestrianToggle(!showOSMPedestrian)}
+              />
+              <span></span>
+            </ToggleSwitch>
+          </CategoryHeader>
+
+          <SubLayerContainer $isVisible={expandedCategories.pedestrianNetwork && showOSMPedestrian}>
+            <SubLayer>
+              <span>Walking Paths</span>
+              <ToggleSwitch>
+                <input
+                  type="checkbox"
+                  checked={showPedestrianPaths}
+                  onChange={() => {
+                    const newState = !showPedestrianPaths;
+                    setShowPedestrianPaths(newState);
+                    toggleOSMLayer(map.current, 'pedestrian', 'paths', newState && showOSMPedestrian, COLORS.pedestrian);
+                  }}
+                />
+                <span></span>
+              </ToggleSwitch>
+            </SubLayer>
+            
+            <SubLayer>
+              <span>Crossings</span>
+              <ToggleSwitch>
+                <input
+                  type="checkbox"
+                  checked={showPedestrianCrossings}
+                  onChange={() => {
+                    const newState = !showPedestrianCrossings;
+                    setShowPedestrianCrossings(newState);
+                    toggleOSMLayer(map.current, 'pedestrian', 'crossings', newState && showOSMPedestrian, COLORS.pedestrian);
+                  }}
+                />
+                <span></span>
+              </ToggleSwitch>
+            </SubLayer>
+          </SubLayerContainer>
+        </CategorySection>
 
         {/* Public Transit Section */}
         <CategorySection>
@@ -229,59 +416,6 @@ const LayerToggle = ({
                     const newState = !showBikeParking;
                     setShowBikeParking(newState);
                     toggleOSMLayer(map.current, 'bikeInfra', 'parking', newState && showOSMBike, COLORS.bike);
-                  }}
-                />
-                <span></span>
-              </ToggleSwitch>
-            </SubLayer>
-          </SubLayerContainer>
-        </CategorySection>
-
-        {/* Pedestrian Network */}
-        <CategorySection>
-          <CategoryHeader 
-            onClick={() => toggleCategory('pedestrianNetwork')}
-            $isExpanded={expandedCategories.pedestrianNetwork}
-          >
-            <CategoryIcon><LayerIcons.Pedestrian /></CategoryIcon>
-            <CategoryTitle>Pedestrian Network</CategoryTitle>
-            <ToggleSwitch>
-              <input
-                type="checkbox"
-                checked={showOSMPedestrian}
-                onChange={() => handleOSMPedestrianToggle(!showOSMPedestrian)}
-              />
-              <span></span>
-            </ToggleSwitch>
-          </CategoryHeader>
-
-          <SubLayerContainer $isVisible={expandedCategories.pedestrianNetwork && showOSMPedestrian}>
-            <SubLayer>
-              <span>Walking Paths</span>
-              <ToggleSwitch>
-                <input
-                  type="checkbox"
-                  checked={showPedestrianPaths}
-                  onChange={() => {
-                    const newState = !showPedestrianPaths;
-                    setShowPedestrianPaths(newState);
-                    toggleOSMLayer(map.current, 'pedestrian', 'paths', newState && showOSMPedestrian, COLORS.pedestrian);
-                  }}
-                />
-                <span></span>
-              </ToggleSwitch>
-            </SubLayer>
-            
-            <SubLayer>
-              <span>Crossings</span>
-              <ToggleSwitch>
-                <input
-                  type="checkbox"
-                  checked={showPedestrianCrossings}
-                  onChange={() => {
-                    const newState = !showPedestrianCrossings;
-                    setShowPedestrianCrossings(newState);
-                    toggleOSMLayer(map.current, 'pedestrian', 'crossings', newState && showOSMPedestrian, COLORS.pedestrian);
                   }}
                 />
                 <span></span>
@@ -476,9 +610,12 @@ const LayerToggle = ({
 
         {/* Neighborhood Boundaries */}
         <CategorySection>
-          <CategoryHeader>
+          <CategoryHeader 
+            onClick={() => toggleCategory('neighborhoods')}
+            $isExpanded={expandedCategories.neighborhoods}
+          >
             <CategoryIcon><LayerIcons.Neighborhood /></CategoryIcon>
-            <CategoryTitle>Neighborhood Boundaries</CategoryTitle>
+            <CategoryTitle>Policy Initiatives</CategoryTitle>
             <ToggleSwitch>
               <input
                 type="checkbox"
@@ -493,33 +630,199 @@ const LayerToggle = ({
               <span></span>
             </ToggleSwitch>
           </CategoryHeader>
+          
           {showNeighborhoodBoundaries && (
-            <NeighborhoodBoundaries 
-              map={map} 
-              visible={showNeighborhoodBoundaries}
-              planningData={planningData}
-              onNeighborhoodClick={(neighborhoodData) => {
-                console.log('\n=== Neighborhood Click ===');
-                console.log('Neighborhood:', neighborhoodData.name);
-                console.log('Total markers:', neighborhoodData.markerCount);
-                console.log('Adaptive reuse markers:', neighborhoodData.adaptiveReuse.length);
-                console.log('Development markers:', neighborhoodData.development.length);
+            <>
+              <SubLayerContainer $isVisible={expandedCategories.neighborhoods && showNeighborhoodBoundaries}>
+                <SubLayer>
+                  <span>Boundary Labels</span>
+                  <ToggleSwitch>
+                    <input
+                      type="checkbox"
+                      checked={showNeighborhoodLabels}
+                      onChange={() => setShowNeighborhoodLabels(!showNeighborhoodLabels)}
+                    />
+                    <span></span>
+                  </ToggleSwitch>
+                </SubLayer>
+              </SubLayerContainer>
+              
+              <NeighborhoodBoundaries 
+                map={map} 
+                visible={showNeighborhoodBoundaries}
+                showLabels={showNeighborhoodLabels}
+                planningData={planningData}
+                onNeighborhoodClick={(neighborhoodData) => {
+                  console.log('\n=== Neighborhood Click ===');
+                  console.log('Neighborhood:', neighborhoodData.name);
+                  console.log('Total markers:', neighborhoodData.markerCount);
+                  console.log('Adaptive reuse markers:', neighborhoodData.adaptiveReuse.length);
+                  console.log('Development markers:', neighborhoodData.development.length);
 
-                const center = turf.center(neighborhoodData.geometry);
-                map.current.flyTo({
-                  center: center.geometry.coordinates,
-                  zoom: 12,
-                  duration: 1000
-                });
-
-                setSelectedNeighborhood(neighborhoodData);
-                setNeighborhoodMarkers({
-                  adaptiveReuse: neighborhoodData.adaptiveReuse,
-                  development: neighborhoodData.development
-                });
-              }}
-            />
+                  const center = turf.center(neighborhoodData.geometry);
+                  map.current.flyTo({
+                    center: center.geometry.coordinates,
+                    zoom: 12,
+                    duration: 1000
+                  });
+                  
+                  // Instead of setting state for the NeighborhoodPopup, send to AIChatPanel
+                  if (window.setAIChatPanelMessages) {
+                    // Open the AIChatPanel if it's collapsed
+                    if (window.setAIChatPanelCollapsed) {
+                      window.setAIChatPanelCollapsed(false);
+                    }
+                    
+                    // Call the new function to handle neighborhood selection
+                    handleNeighborhoodSelection(neighborhoodData, window.setAIChatPanelMessages);
+                  } else {
+                    console.warn('AIChatPanel message setter not available, falling back to popup');
+                    // Fallback to original behavior if AIChatPanel integration is not available
+                    setSelectedNeighborhood(neighborhoodData);
+                    setNeighborhoodMarkers({
+                      adaptiveReuse: neighborhoodData.adaptiveReuse,
+                      development: neighborhoodData.development
+                    });
+                  }
+                }}
+              />
+            </>
           )}
+        </CategorySection>
+
+        {/* Property Prices Section */}
+        <CategorySection>
+          <CategoryHeader 
+            onClick={() => toggleCategory('propertyPrices')}
+            $isExpanded={expandedCategories.propertyPrices}
+          >
+            <CategoryIcon><LayerIcons.Property /></CategoryIcon>
+            <CategoryTitle>Property Prices</CategoryTitle>
+            <ToggleSwitch>
+              <input
+                type="checkbox"
+                checked={showPropertyPrices}
+                onChange={() => setShowPropertyPrices(!showPropertyPrices)}
+              />
+              <span></span>
+            </ToggleSwitch>
+          </CategoryHeader>
+        </CategorySection>
+
+        {/* Parks Section */}
+        <CategorySection>
+          <CategoryHeader 
+            onClick={() => toggleCategory('parks')}
+            $isExpanded={expandedCategories.parks}
+          >
+            <CategoryIcon><LayerIcons.Nature /></CategoryIcon>
+            <CategoryTitle>Parks</CategoryTitle>
+            <ToggleSwitch>
+              <input
+                type="checkbox"
+                checked={showParks}
+                onChange={() => setShowParks(!showParks)}
+              />
+              <span></span>
+            </ToggleSwitch>
+          </CategoryHeader>
+        </CategorySection>
+
+        {/* Employment Clusters Section */}
+        <CategorySection>
+          <CategoryHeader 
+            onClick={() => toggleCategory('employment')}
+            $isExpanded={expandedCategories.employment}
+          >
+            <CategoryIcon><LayerIcons.Business /></CategoryIcon>
+            <CategoryTitle>Employment Clusters</CategoryTitle>
+            <ToggleSwitch>
+              <input
+                type="checkbox"
+                checked={showEmployment}
+                onChange={() => setShowEmployment(!showEmployment)}
+              />
+              <span></span>
+            </ToggleSwitch>
+          </CategoryHeader>
+
+          <SubLayerContainer $isVisible={expandedCategories.employment && showEmployment}>
+            <SubLayer>
+              <span>Business Districts</span>
+              <ToggleSwitch>
+                <input
+                  type="checkbox"
+                  checked={showEmployment}
+                  onChange={() => {
+                    const newState = !showEmployment;
+                    setShowEmployment(newState);
+                  }}
+                />
+                <span></span>
+              </ToggleSwitch>
+            </SubLayer>
+
+            <SubLayer>
+              <span>Employment Labels</span>
+              <ToggleSwitch>
+                <input
+                  type="checkbox"
+                  checked={showEmploymentLabels}
+                  onChange={() => setShowEmploymentLabels(!showEmploymentLabels)}
+                />
+                <span></span>
+              </ToggleSwitch>
+            </SubLayer>
+          </SubLayerContainer>
+        </CategorySection>
+
+        {/* Local Zones Section */}
+        <CategorySection>
+          <CategoryHeader 
+            onClick={() => toggleCategory('localZones')}
+            $isExpanded={expandedCategories.localZones}
+          >
+            <CategoryIcon>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="24" height="24">
+                <path d="M3 21h18M3 10h18M3 7l9-4 9 4M4 10v11m16-11v11"/>
+              </svg>
+            </CategoryIcon>
+            <CategoryTitle>Local Zones</CategoryTitle>
+            <ToggleSwitch>
+              <input
+                type="checkbox"
+                checked={showLocalZones}
+                onChange={() => setShowLocalZones(!showLocalZones)}
+              />
+              <span></span>
+            </ToggleSwitch>
+          </CategoryHeader>
+
+          <SubLayerContainer $isVisible={expandedCategories.localZones && showLocalZones}>
+            <SubLayer>
+              <span>Zone Boundaries</span>
+              <ToggleSwitch>
+                <input
+                  type="checkbox"
+                  checked={showLocalZoneBoundaries}
+                  onChange={() => setShowLocalZoneBoundaries(!showLocalZoneBoundaries)}
+                />
+                <span></span>
+              </ToggleSwitch>
+            </SubLayer>
+
+            <SubLayer>
+              <span>Zone Labels</span>
+              <ToggleSwitch>
+                <input
+                  type="checkbox"
+                  checked={showLocalZoneLabels}
+                  onChange={() => setShowLocalZoneLabels(!showLocalZoneLabels)}
+                />
+                <span></span>
+              </ToggleSwitch>
+            </SubLayer>
+          </SubLayerContainer>
         </CategorySection>
       </LayerToggleContainer>
 
@@ -533,13 +836,102 @@ const LayerToggle = ({
         </svg>
       </ExpandButton>
 
-      <NeighborhoodPopup
-        selectedNeighborhood={selectedNeighborhood}
-        neighborhoodMarkers={neighborhoodMarkers}
-        onClose={() => {
-          setSelectedNeighborhood(null);
-          setNeighborhoodMarkers(null);
+      <SceneManager
+        map={map.current}
+        layerStates={{
+          showZoningLayer,
+          showPlanningAnalysis,
+          showAdaptiveReuse,
+          showDevelopmentPotential,
+          showTransportation,
+          showRoads,
+          showNeighborhoodBoundaries, 
+          showNeighborhoodLabels,
+          showPropertyPrices,
+          show3DBuildings,
+          showPublicTransit: showOSMTransit,
+          showOSMTransit,
+          showTransitStops,
+          showTransitRoutes,
+          showBikeInfra: showOSMBike,
+          showOSMBike,
+          showBikeLanes,
+          showBikePaths,
+          showBikeParking,
+          showPedestrian: showOSMPedestrian,
+          showOSMPedestrian,
+          showPedestrianPaths,
+          showPedestrianCrossings,
+          showParks,
+          showEmployment,
+          showEmploymentLabels,
+          showLocalZones,
+          showLocalZoneBoundaries,
+          showLocalZoneLabels
         }}
+        onLoadScene={(sceneLayerStates) => {
+          // Handle loading scene layer states
+          if (sceneLayerStates.showZoningLayer !== undefined) setShowZoningLayer(sceneLayerStates.showZoningLayer);
+          if (sceneLayerStates.showPlanningAnalysis !== undefined) setShowPlanningAnalysis(sceneLayerStates.showPlanningAnalysis);
+          if (sceneLayerStates.showAdaptiveReuse !== undefined) setShowAdaptiveReuse(sceneLayerStates.showAdaptiveReuse);
+          if (sceneLayerStates.showDevelopmentPotential !== undefined) setShowDevelopmentPotential(sceneLayerStates.showDevelopmentPotential);
+          if (sceneLayerStates.showTransportation !== undefined) setShowTransportation(sceneLayerStates.showTransportation);
+          if (sceneLayerStates.showRoads !== undefined) setShowRoads(sceneLayerStates.showRoads);
+          if (sceneLayerStates.showNeighborhoodBoundaries !== undefined) setShowNeighborhoodBoundaries(sceneLayerStates.showNeighborhoodBoundaries);
+          if (sceneLayerStates.showNeighborhoodLabels !== undefined) setShowNeighborhoodLabels(sceneLayerStates.showNeighborhoodLabels);
+          if (sceneLayerStates.showPropertyPrices !== undefined) setShowPropertyPrices(sceneLayerStates.showPropertyPrices);
+          if (sceneLayerStates.showBikeInfra !== undefined) handleOSMBikeToggle(sceneLayerStates.showOSMBike);
+          if (sceneLayerStates.showPublicTransit !== undefined) handleOSMTransitToggle(sceneLayerStates.showOSMTransit);
+          if (sceneLayerStates.showPedestrian !== undefined) handleOSMPedestrianToggle(sceneLayerStates.showOSMPedestrian);
+          if (sceneLayerStates.showParks !== undefined) setShowParks(sceneLayerStates.showParks);
+          if (sceneLayerStates.showEmployment !== undefined) setShowEmployment(sceneLayerStates.showEmployment);
+          if (sceneLayerStates.showEmploymentLabels !== undefined) setShowEmploymentLabels(sceneLayerStates.showEmploymentLabels);
+          if (sceneLayerStates.showLocalZones !== undefined) setShowLocalZones(sceneLayerStates.showLocalZones);
+          if (sceneLayerStates.showLocalZoneBoundaries !== undefined) setShowLocalZoneBoundaries(sceneLayerStates.showLocalZoneBoundaries);
+          if (sceneLayerStates.showLocalZoneLabels !== undefined) setShowLocalZoneLabels(sceneLayerStates.showLocalZoneLabels);
+          
+          // Handle 3D buildings state
+          if (sceneLayerStates.show3DBuildings !== undefined) {
+            console.log('Restoring 3D buildings state:', sceneLayerStates.show3DBuildings);
+            
+            // Get current state to check if we need to toggle
+            const currentState = show3DBuildings;
+            const targetState = sceneLayerStates.show3DBuildings;
+            
+            if (currentState !== targetState) {
+              console.log('3D buildings state needs to change:', currentState, '->', targetState);
+              // Call toggle3D from the hook to ensure proper layer setup/visibility
+              toggle3D();
+            } else {
+              console.log('3D buildings state already matches scene:', currentState);
+            }
+          }
+        }}
+        isOpen={isSceneSidebarOpen}
+        onClose={() => setIsSceneSidebarOpen(false)}
+      />
+
+      {/* Only show the popup if AIChatPanel integration failed */}
+      {selectedNeighborhood && neighborhoodMarkers && (
+        <NeighborhoodPopup
+          selectedNeighborhood={selectedNeighborhood}
+          neighborhoodMarkers={neighborhoodMarkers}
+          onClose={() => {
+            setSelectedNeighborhood(null);
+            setNeighborhoodMarkers(null);
+          }}
+        />
+      )}
+
+      <PropertyPricesLayer
+        map={map}
+        showPropertyPrices={showPropertyPrices}
+      />
+
+      <EmploymentLayer
+        map={map}
+        showEmployment={showEmployment}
+        showLabels={showEmploymentLabels}
       />
     </>
   );

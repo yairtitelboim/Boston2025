@@ -716,7 +716,20 @@ export const stopRoadAnimation = (frameId) => {
 // Add these new exports
 export const initializeRoadParticles = (map) => {
     try {
-        if (!map.getSource('road-particles')) {
+        if (!map) {
+            console.warn('No map provided to initializeRoadParticles');
+            return false;
+        }
+
+        // Check if source already exists, and if so, just clear it
+        if (map.getSource('road-particles')) {
+            map.getSource('road-particles').setData({
+                type: 'FeatureCollection',
+                features: []
+            });
+            console.log('Existing road particles source cleared');
+        } else {
+            // Add a new source
             map.addSource('road-particles', {
                 type: 'geojson',
                 data: {
@@ -724,8 +737,10 @@ export const initializeRoadParticles = (map) => {
                     features: []
                 }
             });
+            console.log('Road particles source created');
         }
 
+        // Check if layer already exists
         if (!map.getLayer('road-particles')) {
             map.addLayer({
                 'id': 'road-particles',
@@ -759,9 +774,16 @@ export const initializeRoadParticles = (map) => {
                 },
                 'minzoom': 5  // Allow particles to show at much lower zoom levels
             });
+            console.log('Road particles layer created');
         }
+        
+        // Clear the cached road layers to force re-detection
+        window.roadLayers = null;
+        
+        return true;
     } catch (error) {
         console.error('Error initializing road particles:', error);
+        return false;
     }
 };
 
@@ -777,9 +799,9 @@ const throttle = (func, limit) => {
     }
 };
 
-export const animateRoadParticles = ({ map }) => {
+export const animateRoadParticles = ({ map, timestamp }) => {
     try {
-        if (!map) return null;
+        if (!map) return false;
 
         // Cache road layers if not already cached
         if (!window.roadLayers) {
@@ -791,7 +813,7 @@ export const animateRoadParticles = ({ map }) => {
 
         if (!window.roadLayers.length) {
             console.warn('No road layers found in map style');
-            return null;
+            return false;
         }
 
         const zoom = map.getZoom();
@@ -802,7 +824,7 @@ export const animateRoadParticles = ({ map }) => {
         });
 
         const features = [];
-        const time = Date.now() * 0.00012;
+        const time = timestamp * 0.00012 || Date.now() * 0.00012;
 
         // Adjust maxRoads based on zoom level
         const maxRoads = Math.max(50, Math.min(200, Math.floor(zoom * 10)));
@@ -855,24 +877,34 @@ export const animateRoadParticles = ({ map }) => {
             });
         }
 
-        return requestAnimationFrame(() => animateRoadParticles({ map }));
+        // We don't initiate the next frame anymore - the parent component handles that
+        return true;
     } catch (error) {
         console.error('Error animating road particles:', error);
-        return null;
+        return false;
     }
 };
 
 export const stopRoadParticles = (map) => {
     try {
-        if (map.getLayer('road-particles')) {
-            map.removeLayer('road-particles');
+        if (!map) {
+            console.warn('No map provided to stopRoadParticles');
+            return false;
         }
+        
+        // Clear the particles by setting empty data
         if (map.getSource('road-particles')) {
-            map.removeSource('road-particles');
+            map.getSource('road-particles').setData({
+                type: 'FeatureCollection',
+                features: []
+            });
+            console.log('Road particles cleared');
         }
-        window.roadLayers = null; // Clear cached road layers
+        
+        return true;
     } catch (error) {
         console.error('Error stopping road particles:', error);
+        return false;
     }
 };
 
