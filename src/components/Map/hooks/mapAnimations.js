@@ -50,7 +50,7 @@ export const initializeParticleLayers = (map) => {
 
 export const generateParticles = (map, highlightedBuildings) => {
     const features = [];
-    
+
     if (!highlightedBuildings?.buildings) {
         return { type: 'FeatureCollection', features: [] };
     }
@@ -63,9 +63,9 @@ export const generateParticles = (map, highlightedBuildings) => {
     // Generate road particles
     roads.forEach(road => {
         if (!road.geometry.coordinates) return;
-        
-        const coords = road.geometry.type === 'LineString' ? 
-            road.geometry.coordinates : 
+
+        const coords = road.geometry.type === 'LineString' ?
+            road.geometry.coordinates :
             road.geometry.coordinates[0];
 
         const particleCount = 10;
@@ -73,14 +73,14 @@ export const generateParticles = (map, highlightedBuildings) => {
 
         for (let i = 0; i < particleCount; i++) {
             if (coords.length < 2) continue;
-            
+
             const offset = (i / particleCount + progress) % 1;
             const index = Math.floor(offset * (coords.length - 1));
             const nextIndex = (index + 1) % coords.length;
-            
+
             const start = coords[index];
             const end = coords[nextIndex];
-            
+
             const position = [
                 start[0] + (end[0] - start[0]) * (offset % 1),
                 start[1] + (end[1] - start[1]) * (offset % 1)
@@ -117,10 +117,10 @@ export const generateParticles = (map, highlightedBuildings) => {
                 const offset = (i / particleCount + progress) % 1;
                 const index = Math.floor(offset * (perimeter.length - 1));
                 const nextIndex = (index + 1) % perimeter.length;
-                
+
                 const start = perimeter[index];
                 const end = perimeter[nextIndex];
-                
+
                 const position = [
                     start[0] + (end[0] - start[0]) * (offset % 1),
                     start[1] + (end[1] - start[1]) * (offset % 1)
@@ -164,8 +164,8 @@ export const animateParticles = ({ map, highlightedBuildings }) => {
         roads.forEach(road => {
             if (!road.geometry.coordinates) return;
 
-            const coords = road.geometry.type === 'LineString' ? 
-                road.geometry.coordinates : 
+            const coords = road.geometry.type === 'LineString' ?
+                road.geometry.coordinates :
                 road.geometry.coordinates[0];
 
             if (!coords || coords.length < 2) return;
@@ -202,7 +202,7 @@ export const animateParticles = ({ map, highlightedBuildings }) => {
             });
         }
 
-        return requestAnimationFrame(() => 
+        return requestAnimationFrame(() =>
             animateParticles({ map, highlightedBuildings })
         );
 
@@ -280,7 +280,7 @@ export const generateCoolingPoints = (map) => {
             buildingCoords.reduce((sum, coord) => sum + coord[0], 0) / buildingCoords.length,
             buildingCoords.reduce((sum, coord) => sum + coord[1], 0) / buildingCoords.length
         ];
-        
+
         const isPositive = Math.random() > 0.5;
         const baseRadius = 0.00375;
         const outerRadius = 0.00625;
@@ -315,8 +315,8 @@ export const generateCoolingPoints = (map) => {
             points.features.push({
                 type: 'Feature',
                 properties: {
-                    efficiency: isPositive ? 
-                        0.3 + (Math.random() * 0.3) : 
+                    efficiency: isPositive ?
+                        0.3 + (Math.random() * 0.3) :
                         0.1 + (Math.random() * 0.2),
                     intensity: 0.4 - (Math.random() * 0.2)
                 },
@@ -441,14 +441,14 @@ export const initializeGEOIDParticleLayers = (map) => {
 // Add function to generate GEOID particles
 export const generateGEOIDParticles = (map, geoIdFeatures) => {
     const features = [];
-    
+
     if (!geoIdFeatures?.length) {
         return { type: 'FeatureCollection', features: [] };
     }
 
     geoIdFeatures.forEach(geoid => {
         if (!geoid.geometry?.coordinates?.[0]) return;
-        
+
         const perimeter = geoid.geometry.coordinates[0];
         const particleCount = 30;
         const progress = (Date.now() * 0.001) % 1;
@@ -457,10 +457,10 @@ export const generateGEOIDParticles = (map, geoIdFeatures) => {
             const offset = (i / particleCount + progress) % 1;
             const index = Math.floor(offset * (perimeter.length - 1));
             const nextIndex = (index + 1) % perimeter.length;
-            
+
             const start = perimeter[index];
             const end = perimeter[nextIndex];
-            
+
             const position = [
                 start[0] + (end[0] - start[0]) * (offset % 1),
                 start[1] + (end[1] - start[1]) * (offset % 1)
@@ -510,12 +510,12 @@ export const animateGEOIDParticles = ({ map, geoIdFeatures, isActive = true }) =
 
         geoIdFeatures.forEach(geoid => {
             if (!geoid.geometry?.coordinates?.[0]) return;
-            
+
             const coords = geoid.geometry.coordinates[0];
             if (!coords || coords.length < 2) return;
 
             const particleCount = 20; // Reduced for performance
-            
+
             for (let i = 0; i < particleCount; i++) {
                 const progress = (time + i * 0.1) % 1;
                 const index = Math.floor(progress * (coords.length - 1));
@@ -554,7 +554,7 @@ export const animateGEOIDParticles = ({ map, geoIdFeatures, isActive = true }) =
 
         // Set up next animation frame only if still active
         if (isActive) {
-            window.geoIdAnimationFrame = requestAnimationFrame(() => 
+            window.geoIdAnimationFrame = requestAnimationFrame(() =>
                 animateGEOIDParticles({ map, geoIdFeatures, isActive })
             );
         }
@@ -609,7 +609,7 @@ export const transitionToGridView = (map) => {
 
         // Then initialize power grid particles
         initializeParticleLayers(map);
-        
+
         // Show and enhance 3D buildings
         if (map.getLayer('3d-buildings')) {
             map.setLayoutProperty('3d-buildings', 'visibility', 'visible');
@@ -642,7 +642,7 @@ export const initializeRoadGrid = (map, options = {}) => {
             map.removeLayer(layerId);
         }
     });
-    
+
     map.addLayer({
         'id': 'road-grid',
         'type': 'line',
@@ -668,11 +668,11 @@ export const initializeRoadGrid = (map, options = {}) => {
 export const animateRoadGrid = (map) => {
     let start;
     let animationFrame;
-    
+
     function animate(timestamp) {
         if (!start) start = timestamp;
         const progress = (timestamp - start) / 1000;
-        
+
         if (map.getLayer('road-grid')) {
             map.setPaintProperty('road-grid', 'line-dasharray', [
                 2,
@@ -680,11 +680,11 @@ export const animateRoadGrid = (map) => {
                 progress % 8
             ]);
         }
-        
+
         animationFrame = requestAnimationFrame(animate);
         return animationFrame;
     }
-    
+
     return animate(0);
 };
 
@@ -776,10 +776,10 @@ export const initializeRoadParticles = (map) => {
             });
             console.log('Road particles layer created');
         }
-        
+
         // Clear the cached road layers to force re-detection
         window.roadLayers = null;
-        
+
         return true;
     } catch (error) {
         console.error('Error initializing road particles:', error);
@@ -796,6 +796,37 @@ const throttle = (func, limit) => {
             inThrottle = true;
             setTimeout(() => inThrottle = false, limit);
         }
+    }
+};
+
+// Global state to track throttling of road particles
+window.roadParticleState = {
+    isThrottled: false,
+    throttleLevel: 1, // 1 = normal, 2 = medium throttle, 3 = high throttle
+    lastThrottleChange: Date.now(),
+    throttleTimeout: null
+};
+
+export const setRoadParticleThrottle = (throttleLevel = 1, duration = 1500) => {
+    // Clear any existing throttle timeouts
+    if (window.roadParticleState.throttleTimeout) {
+        clearTimeout(window.roadParticleState.throttleTimeout);
+    }
+
+    // Set the throttle level (1 = normal, 2 = medium, 3 = high)
+    window.roadParticleState.throttleLevel = Math.min(3, Math.max(1, throttleLevel));
+    window.roadParticleState.isThrottled = throttleLevel > 1;
+    window.roadParticleState.lastThrottleChange = Date.now();
+
+    // Removed console.log for throttle level changes
+
+    // Set a timeout to restore normal animation after the specified duration
+    if (throttleLevel > 1 && duration > 0) {
+        window.roadParticleState.throttleTimeout = setTimeout(() => {
+            // Removed console.log for throttle restoration
+            window.roadParticleState.throttleLevel = 1;
+            window.roadParticleState.isThrottled = false;
+        }, duration);
     }
 };
 
@@ -818,6 +849,24 @@ export const animateRoadParticles = ({ map, timestamp }) => {
 
         const zoom = map.getZoom();
         const bounds = map.getBounds();
+
+        // Get the current throttle level
+        const throttleLevel = window.roadParticleState?.throttleLevel || 1;
+
+        // Apply throttling based on throttle level
+        let throttleFactor;
+        switch (throttleLevel) {
+            case 3: // High throttle (load-intensive operations)
+                throttleFactor = 0.2; // 80% reduction
+                break;
+            case 2: // Medium throttle (some interactions)
+                throttleFactor = 0.5; // 50% reduction
+                break;
+            default: // Normal operation
+                throttleFactor = 1.0;
+        }
+
+        // Apply throttling to how many roads we process
         const roads = map.queryRenderedFeatures({
             layers: window.roadLayers,
             bounds: bounds
@@ -826,24 +875,24 @@ export const animateRoadParticles = ({ map, timestamp }) => {
         const features = [];
         const time = timestamp * 0.00012 || Date.now() * 0.00012;
 
-        // Adjust maxRoads based on zoom level
-        const maxRoads = Math.max(50, Math.min(200, Math.floor(zoom * 10)));
+        // Adjust maxRoads based on zoom level and throttle factor
+        const maxRoads = Math.max(20, Math.min(200, Math.floor(zoom * 10 * throttleFactor)));
         const stride = Math.max(1, Math.floor(roads.length / maxRoads));
-        
+
         for (let i = 0; i < roads.length; i += stride) {
             const road = roads[i];
             if (!road.geometry?.coordinates) continue;
 
-            const coords = road.geometry.type === 'LineString' ? 
-                road.geometry.coordinates : 
+            const coords = road.geometry.type === 'LineString' ?
+                road.geometry.coordinates :
                 road.geometry.coordinates[0];
 
             if (!coords || coords.length < 2) continue;
 
-            // Adjust particle count based on zoom and road type
-            const baseCount = road.properties.class === 'motorway' ? 
-                Math.max(3, Math.min(8, Math.floor(zoom / 2))) : 
-                Math.max(2, Math.min(6, Math.floor(zoom / 3)));
+            // Adjust particle count based on zoom, road type and throttle factor
+            const baseCount = road.properties.class === 'motorway' ?
+                Math.max(1, Math.min(8, Math.floor(zoom / 2 * throttleFactor))) :
+                Math.max(1, Math.min(6, Math.floor(zoom / 3 * throttleFactor)));
 
             for (let j = 0; j < baseCount; j++) {
                 const progress = (time + j * 0.12) % 1;
@@ -891,7 +940,7 @@ export const stopRoadParticles = (map) => {
             console.warn('No map provided to stopRoadParticles');
             return false;
         }
-        
+
         // Clear the particles by setting empty data
         if (map.getSource('road-particles')) {
             map.getSource('road-particles').setData({
@@ -900,7 +949,7 @@ export const stopRoadParticles = (map) => {
             });
             console.log('Road particles cleared');
         }
-        
+
         return true;
     } catch (error) {
         console.error('Error stopping road particles:', error);
@@ -915,10 +964,10 @@ export const initializePanelAnimations = (map) => {
 
 export const handlePanelCollapse = (isCollapsed, map) => {
   if (!map) return;
-  
+
   // Handle if map is a ref object
   const mapInstance = map.current ? map.current : map;
-  
+
   if (!mapInstance || !mapInstance.easeTo) {
     console.warn('Invalid map instance in handlePanelCollapse');
     return;
@@ -928,7 +977,7 @@ export const handlePanelCollapse = (isCollapsed, map) => {
   if (window.innerWidth <= 768) {
     return;
   }
-  
+
   // Adjust map view on desktop only
   if (isCollapsed) {
     // Panel is collapsed, expand map
@@ -959,10 +1008,10 @@ export const clearExistingElements = (map) => {
   // Clear existing animations and visual elements
   const existingMarkers = document.querySelectorAll('.mapboxgl-marker');
   existingMarkers.forEach(marker => marker.remove());
-  
+
   const existingCallouts = document.querySelectorAll('.callout-annotation');
   existingCallouts.forEach(callout => callout.remove());
-  
+
   if (map.getSource('area-highlights')) {
     map.getSource('area-highlights').setData({
       type: 'FeatureCollection',
@@ -976,7 +1025,7 @@ export const fetchErcotData = async (map) => {
   try {
     const response = await fetch('/api/ercot');
     const data = await response.json();
-    
+
     // Add ERCOT layer animations
     map.addLayer({
       'id': 'ercot-layer',
@@ -987,7 +1036,7 @@ export const fetchErcotData = async (map) => {
         'fill-opacity': 0
       }
     });
-    
+
     return data;
   } catch (error) {
     console.error('Error fetching ERCOT data:', error);
@@ -1003,4 +1052,4 @@ export const clearErcotMode = (map) => {
   if (map.getSource('ercot')) {
     map.removeSource('ercot');
   }
-}; 
+};

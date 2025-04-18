@@ -11,21 +11,21 @@ export const LayerToggleContainer = styled.div`
   z-index: 1;
   transition: transform 0.3s ease;
   transform: translateX(${props => props.$isCollapsed ? 'calc(100% + 10px)' : '0'});
-  width: 320px;
-  max-height: calc(100vh - 40px);
+  width: 384px; /* 20% wider than original 320px */
+  max-height: calc(70vh - 150px); /* 30% shorter than original 100vh - 40px */
   overflow-y: auto;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   will-change: transform;
-  
+
   &::-webkit-scrollbar {
     width: 8px;
   }
-  
+
   &::-webkit-scrollbar-track {
     background: rgba(15, 23, 42, 0.3);
     border-radius: 4px;
   }
-  
+
   &::-webkit-scrollbar-thumb {
     background: rgba(148, 163, 184, 0.5);
     border-radius: 4px;
@@ -112,11 +112,11 @@ export const SearchInput = styled.input`
   color: #fff;
   margin-bottom: 16px;
   font-size: 14px;
-  
+
   &::placeholder {
     color: rgba(148, 163, 184, 0.5);
   }
-  
+
   &:focus {
     outline: none;
     border-color: #3b82f6;
@@ -136,7 +136,7 @@ export const CategoryHeader = styled.div`
   cursor: pointer;
   margin-bottom: ${props => props.$isExpanded ? '8px' : '0'};
   transition: background 0.2s ease;
-  
+
   &:hover {
     background: rgba(30, 41, 59, 0.8);
   }
@@ -151,7 +151,7 @@ export const CategoryIcon = styled.div`
   justify-content: center;
   color: #fff;
   opacity: 0.9;
-  
+
   svg {
     stroke: currentColor;
   }
@@ -170,21 +170,21 @@ export const ToggleSwitch = styled.label`
   display: inline-block;
   width: 40px;
   height: 20px;
-  
+
   input {
     opacity: 0;
     width: 0;
     height: 0;
-    
+
     &:checked + span {
       background-color: #3b82f6;
     }
-    
+
     &:checked + span:before {
       transform: translateX(20px);
     }
   }
-  
+
   span {
     position: absolute;
     cursor: pointer;
@@ -195,7 +195,7 @@ export const ToggleSwitch = styled.label`
     background-color: rgba(148, 163, 184, 0.2);
     transition: .3s;
     border-radius: 20px;
-    
+
     &:before {
       position: absolute;
       content: "";
@@ -251,4 +251,4 @@ export const LegendColor = styled.div`
   margin-right: 8px;
   border-radius: 2px;
   background: ${props => props.color};
-`; 
+`;

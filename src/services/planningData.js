@@ -62,6 +62,19 @@ const mockZoningData = {
   ]
 };
 
+const DEBUG_LOGGING = false;
+
+const log = (message, ...args) => {
+  if (DEBUG_LOGGING) {
+    console.log(message, ...args);
+  }
+};
+
+const error = (message, error) => {
+  // Keep errors but make them more concise and structured
+  console.error(`Planning Data Error: ${message}`, error?.message || error);
+};
+
 /**
  * Fetches zoning GeoJSON data (mock for testing)
  * @returns {Promise<Object>} - GeoJSON formatted zoning data
@@ -71,7 +84,7 @@ export const fetchLAZoningData = async () => {
     // Return mock data for testing
     return mockZoningData;
   } catch (error) {
-    console.error('Error fetching LA zoning data:', error);
+    error('Failed to fetch LA zoning data', error);
     throw error;
   }
 };
@@ -99,7 +112,7 @@ export const getZoneDetails = async (zoneCode) => {
     const data = await extractStructuredData(url, extractionPrompt);
     return data;
   } catch (error) {
-    console.error(`Error fetching details for zone ${zoneCode}:`, error);
+    error(`Failed to fetch details for zone ${zoneCode}`, error);
     throw error;
   }
 };
@@ -116,7 +129,7 @@ export const fetchLACommunityPlans = async () => {
     const data = await scrapeUrl(url, { format: 'json' });
     return processCommunityPlanData(data);
   } catch (error) {
-    console.error('Error fetching LA community plans:', error);
+    error('Failed to fetch LA community plans', error);
     throw error;
   }
 };
@@ -188,7 +201,7 @@ export const fetchZoningData = async () => {
     const response = await axios.get('/kx-houston-texas-census-block-group-boundaries-2010-SHP/ZONING_PLY_20250311.geojson');
     return response.data;
   } catch (error) {
-    console.error('Error fetching zoning data:', error);
+    error('Failed to fetch zoning data', error);
     throw error;
   }
 } 

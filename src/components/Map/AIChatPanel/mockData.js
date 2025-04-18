@@ -1,9 +1,9 @@
 // Model colors
 export const MODEL_COLORS = {
-  gpt4: '#3b82f6',     // blue
-  claude3: '#8b5cf6',  // purple
-  llama3: '#10b981',   // green
-  deepseek: '#f97316'  // orange
+  tourist: '#4CAF50',  // Green for tourist guide
+  local: '#2196F3',    // Blue for local expert
+  business: '#9C27B0', // Purple for business travel
+  family: '#FF9800',   // Orange for family planner
 };
 
 // Mock data for a 15-minute city analysis cluster

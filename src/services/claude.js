@@ -10,61 +10,61 @@ const llmModels = [
 
 // 15-minute city accessibility metrics
 const accessibilityData = [
-  { 
+  {
     factor: 'Public Transit',
     category: 'Mobility',
-    'GPT-4': 85, 
-    'Claude 3': 88, 
+    'GPT-4': 85,
+    'Claude 3': 88,
     'Llama 3': 82,
     'DeepSeek-R1': 84,
     description: '4 metro stops within 10-minute walk',
     impact: 'Excellent transit connectivity'
   },
-  { 
+  {
     factor: 'Bike Infrastructure',
-    category: 'Mobility', 
-    'GPT-4': 75, 
-    'Claude 3': 78, 
+    category: 'Mobility',
+    'GPT-4': 75,
+    'Claude 3': 78,
     'Llama 3': 72,
     'DeepSeek-R1': 76,
     description: '8.5 miles of protected bike lanes',
     impact: 'Strong cycling infrastructure'
   },
-  { 
+  {
     factor: 'Essential Services',
-    category: 'Accessibility', 
-    'GPT-4': 92, 
-    'Claude 3': 90, 
+    category: 'Accessibility',
+    'GPT-4': 92,
+    'Claude 3': 90,
     'Llama 3': 88,
     'DeepSeek-R1': 89,
     description: '95% of essentials within 15 minutes',
     impact: 'Excellent daily needs access'
   },
-  { 
+  {
     factor: 'Green Spaces',
-    category: 'Accessibility', 
-    'GPT-4': 68, 
-    'Claude 3': 65, 
+    category: 'Accessibility',
+    'GPT-4': 68,
+    'Claude 3': 65,
     'Llama 3': 70,
     'DeepSeek-R1': 66,
     description: '12 acres of parks and plazas',
     impact: 'Moderate green space access'
   },
-  { 
+  {
     factor: 'Mixed-Use Development',
-    category: 'Urban Design', 
-    'GPT-4': 88, 
-    'Claude 3': 85, 
+    category: 'Urban Design',
+    'GPT-4': 88,
+    'Claude 3': 85,
     'Llama 3': 82,
     'DeepSeek-R1': 84,
     description: '78% mixed-use zoning',
     impact: 'Strong land use diversity'
   },
-  { 
+  {
     factor: 'Walkability',
-    category: 'Urban Design', 
-    'GPT-4': 95, 
-    'Claude 3': 92, 
+    category: 'Urban Design',
+    'GPT-4': 95,
+    'Claude 3': 92,
     'Llama 3': 90,
     'DeepSeek-R1': 93,
     description: 'Walk Score: 92/100',
@@ -714,52 +714,52 @@ export const MOCK_RESPONSES = {
           { id: 'deepseek', name: 'DeepSeek-R1', color: '#f97316', confidence: 87 }
         ],
         riskFactorData: [
-          { 
-            factor: 'Elevation', 
-            'GPT-4': 25, 
-            'Claude 3': 20, 
+          {
+            factor: 'Elevation',
+            'GPT-4': 25,
+            'Claude 3': 20,
             'Llama 3': 38,
-            'DeepSeek-R1': 42, 
+            'DeepSeek-R1': 42,
             description: 'Property sits 3.5ft below surrounding area'
           },
-          { 
-            factor: 'Building Age', 
-            'GPT-4': 15, 
-            'Claude 3': 23, 
+          {
+            factor: 'Building Age',
+            'GPT-4': 15,
+            'Claude 3': 23,
             'Llama 3': 10,
-            'DeepSeek-R1': 12, 
+            'DeepSeek-R1': 12,
             description: 'Most structures built between 1990-2005'
           },
-          { 
-            factor: 'Power Infrastructure', 
-            'GPT-4': 25, 
-            'Claude 3': 30, 
+          {
+            factor: 'Power Infrastructure',
+            'GPT-4': 25,
+            'Claude 3': 30,
             'Llama 3': 12,
-            'DeepSeek-R1': 18, 
+            'DeepSeek-R1': 18,
             description: 'Multiple substations with partial redundancy'
           },
-          { 
-            factor: 'Bayou Proximity', 
-            'GPT-4': 20, 
-            'Claude 3': 12, 
+          {
+            factor: 'Bayou Proximity',
+            'GPT-4': 20,
+            'Claude 3': 12,
             'Llama 3': 32,
-            'DeepSeek-R1': 25, 
+            'DeepSeek-R1': 25,
             description: '0.6 miles to Buffalo Bayou'
           },
-          { 
-            factor: 'Business Continuity', 
-            'GPT-4': 10, 
-            'Claude 3': 15, 
+          {
+            factor: 'Business Continuity',
+            'GPT-4': 10,
+            'Claude 3': 15,
             'Llama 3': 5,
-            'DeepSeek-R1': 3, 
+            'DeepSeek-R1': 3,
             description: '64% of businesses have continuity plans'
           },
-          { 
-            factor: 'Historical Flooding', 
-            'GPT-4': 5, 
-            'Claude 3': 5, 
+          {
+            factor: 'Historical Flooding',
+            'GPT-4': 5,
+            'Claude 3': 5,
             'Llama 3': 3,
-            'DeepSeek-R1': 5, 
+            'DeepSeek-R1': 5,
             description: '2 major flood events in past 10 years'
           }
         ],
@@ -932,8 +932,6 @@ export const MOCK_RESPONSES = {
   }
 };
 
-console.log("Mock response structure:", JSON.parse(MOCK_RESPONSES["Find neighborhoods with the fastest housing growth"].content[0].text));
-
 // Utility function to simulate API delay for standard flows
 const simulateDelay = () => new Promise(resolve => setTimeout(resolve, 500));
 
@@ -1035,7 +1033,7 @@ const BRICKELL_CALLOUT_RESPONSE = {
 // Add map context validation
 const validateMapContext = (context) => {
   console.log('🔍 Validating map context:', context);
-  
+
   if (!context.mapBounds) {
     console.warn('⚠️ No map bounds provided');
     return false;
@@ -1078,7 +1076,7 @@ export const handleQuestion = async (prompt, context) => {
 
 export const askClaude = async (prompt, context = {}, mapBounds = null) => {
   console.log('Using mock response for development');
-  
+
   // Use fastest delay for graph-only actions
   if (prompt === 'SHOW_GRID_GROWTH' || prompt === 'COMPARE_GRID_METRICS') {
     await simulateGraphActionDelay();
@@ -1087,7 +1085,7 @@ export const askClaude = async (prompt, context = {}, mapBounds = null) => {
   } else {
     await simulateDelay();
   }
-  
+
   if (prompt === "ZOOM_TO_BRICKELL") {
     return BRICKELL_CALLOUT_RESPONSE;
   }
@@ -1099,21 +1097,21 @@ export const askClaude = async (prompt, context = {}, mapBounds = null) => {
   }
 
   console.log('Sending request to Claude API via local proxy...');
-  
+
   const PROXY_URL = 'http://localhost:8080/proxy';
   const API_URL = 'https://api.anthropic.com/v1/messages';
-  
+
   // Create a strict geographic context
-  const boundsContext = mapBounds ? 
+  const boundsContext = mapBounds ?
     `CRITICAL GEOGRAPHIC CONSTRAINTS:
      1. You MUST ONLY analyze the area within these exact coordinates:
         Southwest: [${mapBounds.sw.lng}, ${mapBounds.sw.lat}]
         Northeast: [${mapBounds.ne.lng}, ${mapBounds.ne.lat}]
      2. This is in Miami, Florida. Never suggest locations outside Miami.
      3. Any coordinates you return MUST be within these bounds.
-     4. If you cannot find relevant POIs within these bounds, say so - do not suggest other areas.` 
+     4. If you cannot find relevant POIs within these bounds, say so - do not suggest other areas.`
     : 'Stay within Miami, Florida bounds.';
-  
+
   const response = await axios({
     method: 'post',
     url: `${PROXY_URL}?url=${encodeURIComponent(API_URL)}`,
@@ -1134,7 +1132,7 @@ export const askClaude = async (prompt, context = {}, mapBounds = null) => {
 
                   Current context: ${JSON.stringify(context)}
                   User request: ${prompt}
-                  
+
                   Return a JSON object in this exact format:
                   {
                     "action": "navigate",
@@ -1223,7 +1221,7 @@ export const parseClaudeResponse = (response) => {
     if (response?.content?.[0]?.text) {
       const parsed = JSON.parse(response.content[0].text);
       console.log('Parsed response:', parsed);
-      
+
       // Return all fields from the parsed response
       return parsed;
     }
@@ -1255,7 +1253,7 @@ export const parseClaudeResponse = (response) => {
 export const handlePanelQuestion = async (question, map, setMessages, setIsLoading) => {
   console.log('🎯 Processing question:', question);
   setIsLoading(true);
-  
+
   try {
     const bounds = map.current.getBounds();
     const mapBounds = {
@@ -1292,7 +1290,7 @@ export const handlePanelQuestion = async (question, map, setMessages, setIsLoadi
       });
     }
 
-    setMessages(prev => [...prev, 
+    setMessages(prev => [...prev,
       { isUser: true, content: question },
       { isUser: false, content: parsed }
     ]);
@@ -1328,7 +1326,7 @@ export const handleQuickAction = async (action, map, setMessages, setIsLoading) 
   if (action.prompt === 'SHOW_FUTURE_TRENDS') {
     setIsLoading(true);
     await new Promise(resolve => setTimeout(resolve, 1500));
-    
+
     const mockResponse = {
       isUser: false,
       content: {
@@ -1347,12 +1345,12 @@ export const handleQuickAction = async (action, map, setMessages, setIsLoading) 
         postText: "The blue lines show projected energy demand under different growth scenarios."
       }
     };
-    
+
     setMessages(prev => [...prev, mockResponse]);
     setIsLoading(false);
     return;
   }
-  
+
   // Handle other actions
   const response = await askClaude(action.prompt);
   const parsedResponse = parseClaudeResponse(response);
@@ -1371,7 +1369,7 @@ export const URBAN_IMPACT_LOADING_STEPS = [
   {
     icon: "route",
     text: "Identifying transit corridors and nodes..."
-  }, 
+  },
   {
     icon: "building",
     text: "Mapping commercial and mixed-use zones..."
@@ -1493,23 +1491,23 @@ export const handleUrbanImpactQuestion = async (message, messages, setMessages, 
       console.error("setMessages is not a function", typeof setMessages);
       return;
     }
-    
+
     // Check if messages is passed correctly
     if (!messages) {
       console.warn("Messages not provided to handleUrbanImpactQuestion, initializing as empty array");
       messages = [];
     }
-    
+
     // Define our phases explicitly
     window.currentLoadingPhase = "PHASE_1_ICONS";
     console.log("Starting loading phase 1: Loading steps with icons");
-    
+
     // Set a new message directly
     setMessages(prev => {
       // Ensure prev is an array
       const prevMessages = Array.isArray(prev) ? prev : [];
       // We'll filter out any previous processing steps
-      return prevMessages.filter(msg => 
+      return prevMessages.filter(msg =>
         !msg.content || !msg.content.processingStep
       );
     });
@@ -1522,27 +1520,27 @@ export const handleUrbanImpactQuestion = async (message, messages, setMessages, 
     await addProcessingStep(messages, setMessages, "search", "Identifying relevant interventions...", true, "svg", "wave");
     await delay(600);
     await addProcessingStep(messages, setMessages, "target", "Generating impact analysis...", true, "svg", "rotate");
-    
+
     // Make sure phase 1 is visible for at least 1.5 seconds total
     await delay(1500);
-    
+
     // Clear processing steps before starting phase 2
     setMessages(prev => {
       // Ensure prev is an array
       const prevMessages = Array.isArray(prev) ? prev : [];
       // Remove any processing steps
-      return prevMessages.filter(msg => 
+      return prevMessages.filter(msg =>
         !msg.content || !msg.content.processingStep
       );
     });
-    
+
     // Ensure complete separation with a short delay
     await delay(200);
 
     // Phase 2: Skeleton loading
     window.currentLoadingPhase = "PHASE_2_SKELETON";
     console.log("Starting loading phase 2: Skeleton loading");
-    
+
     // Add a message with the skeleton
     setMessages(prev => {
       // Ensure prev is an array
@@ -1559,20 +1557,20 @@ export const handleUrbanImpactQuestion = async (message, messages, setMessages, 
         }
       ];
     });
-    
+
     // Generate the content with the API
     try {
       // Actual API call - keeping this code unchanged
       const userQuestion = typeof message === 'string' ? message.trim() : "Where could minimal changes create maximum impact?";
       const response = await urbanImpactAnalysis(userQuestion);
-      
+
       // Final phase - displaying actual content
       window.currentLoadingPhase = "PHASE_3_CONTENT";
       console.log("Starting loading phase 3: Showing content");
-      
+
       // Add a small delay before removing skeleton and showing content
       await delay(400);
-      
+
       // Update message state with actual content
       setMessages(prev => {
         // Ensure prev is an array
@@ -1588,10 +1586,10 @@ export const handleUrbanImpactQuestion = async (message, messages, setMessages, 
           }
         ];
       });
-      
+
       // Reset the loading phase when complete
       window.currentLoadingPhase = null;
-      
+
     } catch (error) {
       console.error("Error in urban impact analysis:", error);
       window.currentLoadingPhase = null;
@@ -1612,7 +1610,7 @@ export const handleUrbanImpactQuestion = async (message, messages, setMessages, 
   } catch (error) {
     console.error("Error in handleUrbanImpactQuestion:", error);
     window.currentLoadingPhase = null;
-    
+
     if (typeof setMessages === 'function') {
       setMessages(prev => {
         // Ensure prev is an array
@@ -1684,14 +1682,14 @@ export const SERVICE_CORRIDORS_DATA = {
 export const handleServiceCorridorsQuestion = async (map, setMessages, setIsLoading) => {
   try {
     setIsLoading(true);
-    
+
     const effectiveMap = map || window.mapComponent?.map;
-    
+
     if (!effectiveMap) {
       console.error("No map object available");
       return;
     }
-    
+
     // Add user question to messages
     setMessages(prevMessages => [
       ...prevMessages,
@@ -1700,22 +1698,22 @@ export const handleServiceCorridorsQuestion = async (map, setMessages, setIsLoad
         content: "Show potential service corridors around Skid Row"
       }
     ]);
-    
+
     // Try to load the Zoning scene immediately if it exists
     console.log("Attempting to load Zoning scene");
     if (window.mapComponent && typeof window.mapComponent.loadSceneByName === 'function') {
       const sceneLoaded = window.mapComponent.loadSceneByName("Zoning");
       console.log("Scene load attempt result:", sceneLoaded);
     }
-    
+
     // Show only one loading step with a shorter delay
     await simulateGraphActionDelay(); // Use the faster 250ms delay
-    
+
     setMessages(prevMessages => [
       ...prevMessages,
       {
         isUser: false,
-        content: { 
+        content: {
           processingStep: true,
           icon: 'transit',
           iconType: 'svg',
@@ -1725,23 +1723,23 @@ export const handleServiceCorridorsQuestion = async (map, setMessages, setIsLoad
         }
       }
     ]);
-    
+
     // Return the response with service corridors data
     setMessages(prevMessages => {
       // First remove all processing step messages
-      const withoutProcessingSteps = prevMessages.filter(msg => 
+      const withoutProcessingSteps = prevMessages.filter(msg =>
         !msg.content || !msg.content.processingStep
       );
-      
+
       // Find the most recent user message
       const mostRecentUserMsgIndex = withoutProcessingSteps.findIndex(
         msg => msg.isUser && msg.content === "Show potential service corridors around Skid Row"
       );
-      
+
       return [
         ...withoutProcessingSteps.slice(0, mostRecentUserMsgIndex >= 0 ? mostRecentUserMsgIndex + 1 : withoutProcessingSteps.length),
-        { 
-          isUser: false, 
+        {
+          isUser: false,
           content: {
             preGraphText: "I've identified strategic service corridor opportunities around Skid Row that could significantly improve service access and neighborhood connectivity. Analysis shows three key approaches:",
             graphData: SERVICE_CORRIDORS_DATA,
@@ -1763,7 +1761,7 @@ export const handleServiceCorridorsQuestion = async (map, setMessages, setIsLoad
                 animationDelay: 0.3
               }
             ]
-          } 
+          }
         }
       ];
     });
@@ -1773,7 +1771,7 @@ export const handleServiceCorridorsQuestion = async (map, setMessages, setIsLoad
       ...prevMessages,
       {
         isUser: false,
-        content: { 
+        content: {
           preGraphText: "I'm sorry, I encountered an error while analyzing service corridors around Skid Row. Please try again.",
           postGraphText: "You may want to check if all map layers are loaded correctly or try refreshing the page."
         }
@@ -1842,14 +1840,14 @@ export const INFRASTRUCTURE_IMPROVEMENTS_DATA = {
 export const handleInfrastructureImprovementsQuestion = async (map, setMessages, setIsLoading) => {
   try {
     setIsLoading(true);
-    
+
     const effectiveMap = map || window.mapComponent?.map;
-    
+
     if (!effectiveMap) {
       console.error("No map object available");
       return;
     }
-    
+
     // Add user question to messages
     setMessages(prevMessages => [
       ...prevMessages,
@@ -1858,22 +1856,22 @@ export const handleInfrastructureImprovementsQuestion = async (map, setMessages,
         content: "What infrastructure improvements would have most impact in Skid Row?"
       }
     ]);
-    
+
     // Try to load the "Next" scene immediately if it exists
     console.log("Attempting to load Next scene for infrastructure improvements");
     if (window.mapComponent && typeof window.mapComponent.loadSceneByName === 'function') {
       const sceneLoaded = window.mapComponent.loadSceneByName("Next");
       console.log("Next scene load attempt result:", sceneLoaded);
     }
-    
+
     // Show a quick loading step
     await simulateGraphActionDelay();
-    
+
     setMessages(prevMessages => [
       ...prevMessages,
       {
         isUser: false,
-        content: { 
+        content: {
           processingStep: true,
           icon: 'infrastructure',
           iconType: 'svg',
@@ -1883,23 +1881,23 @@ export const handleInfrastructureImprovementsQuestion = async (map, setMessages,
         }
       }
     ]);
-    
+
     // Return the response with infrastructure improvements data
     setMessages(prevMessages => {
       // First remove all processing step messages
-      const withoutProcessingSteps = prevMessages.filter(msg => 
+      const withoutProcessingSteps = prevMessages.filter(msg =>
         !msg.content || !msg.content.processingStep
       );
-      
+
       // Find the most recent user message
       const mostRecentUserMsgIndex = withoutProcessingSteps.findIndex(
         msg => msg.isUser && msg.content === "What infrastructure improvements would have most impact in Skid Row?"
       );
-      
+
       return [
         ...withoutProcessingSteps.slice(0, mostRecentUserMsgIndex >= 0 ? mostRecentUserMsgIndex + 1 : withoutProcessingSteps.length),
-        { 
-          isUser: false, 
+        {
+          isUser: false,
           content: {
             preGraphText: "Based on my analysis of Skid Row's connectivity challenges, these infrastructure improvements would create the greatest positive impact for residents and service providers:",
             graphData: {
@@ -1924,7 +1922,7 @@ export const handleInfrastructureImprovementsQuestion = async (map, setMessages,
                 animationDelay: 0.3
               }
             ]
-          } 
+          }
         }
       ];
     });
@@ -1934,7 +1932,7 @@ export const handleInfrastructureImprovementsQuestion = async (map, setMessages,
       ...prevMessages,
       {
         isUser: false,
-        content: { 
+        content: {
           preGraphText: "I'm sorry, I encountered an error while analyzing infrastructure improvements for Skid Row. Please try again.",
           postGraphText: "You may want to check if all map layers are loaded correctly or try refreshing the page."
         }
@@ -1943,7 +1941,7 @@ export const handleInfrastructureImprovementsQuestion = async (map, setMessages,
   } finally {
     setIsLoading(false);
   }
-}; 
+};
 
 // Add new data constant for renewable energy capacity
 export const INFRASTRUCTURE_DATA = {
@@ -1972,7 +1970,7 @@ export const handleInfrastructureVisualization = async (map, setMessages, setIsL
   console.log("🚀 Starting handleInfrastructureVisualization");
   try {
     setIsLoading(true);
-    
+
     // Add custom message to indicate we're viewing infrastructure data
     console.log("👤 Adding user message");
     setMessages(prevMessages => [
@@ -1982,16 +1980,16 @@ export const handleInfrastructureVisualization = async (map, setMessages, setIsL
         content: "View Infrastructure & Data Centers Analysis"
       }
     ]);
-    
+
     // Show loading step
     await simulateGraphActionDelay();
-    
+
     console.log("⏳ Adding processing message");
     setMessages(prevMessages => [
       ...prevMessages,
       {
         isUser: false,
-        content: { 
+        content: {
           processingStep: true,
           icon: 'analytics',
           iconType: 'svg',
@@ -2001,10 +1999,10 @@ export const handleInfrastructureVisualization = async (map, setMessages, setIsL
         }
       }
     ]);
-    
+
     // Return the response with infrastructure data
     console.log("📊 Preparing visualization data with type 'renewableEnergy'");
-    
+
     // Create the content payload
     const contentPayload = {
       type: "renewableEnergy",
@@ -2060,28 +2058,28 @@ export const handleInfrastructureVisualization = async (map, setMessages, setIsL
         }
       ]
     };
-    
+
     console.log("📝 Content payload:", contentPayload);
-    
+
     setMessages(prevMessages => {
       // Remove processing step messages
-      const withoutProcessingSteps = prevMessages.filter(msg => 
+      const withoutProcessingSteps = prevMessages.filter(msg =>
         !msg.content || !msg.content.processingStep
       );
-      
+
       // Find the most recent user message
       const mostRecentUserMsgIndex = withoutProcessingSteps.findIndex(
         msg => msg.isUser && msg.content === "View Infrastructure & Data Centers Analysis"
       );
-      
+
       const newMessages = [
         ...withoutProcessingSteps.slice(0, mostRecentUserMsgIndex >= 0 ? mostRecentUserMsgIndex + 1 : withoutProcessingSteps.length),
-        { 
-          isUser: false, 
+        {
+          isUser: false,
           content: contentPayload
         }
       ];
-      
+
       console.log("✅ Final message structure:", newMessages[newMessages.length - 1]);
       return newMessages;
     });
@@ -2091,7 +2089,7 @@ export const handleInfrastructureVisualization = async (map, setMessages, setIsL
       ...prevMessages,
       {
         isUser: false,
-        content: { 
+        content: {
           type: "renewableEnergy",
           preGraphText: "I'm sorry, I encountered an error while analyzing the infrastructure data. Please try again.",
           postGraphText: "You may want to check if all map layers are loaded correctly or try refreshing the page."
@@ -2113,16 +2111,16 @@ export const addProcessingStep = async (messages, setMessages, icon, text, useWh
     console.error("setMessages is not a function in addProcessingStep", typeof setMessages);
     return;
   }
-  
+
   setMessages(prev => {
     // Ensure prev is an array
     const prevMessages = Array.isArray(prev) ? prev : [];
-    
+
     // Find existing assistant message with processing steps
-    const existingAssistantMessageIndex = prevMessages.findIndex(msg => 
+    const existingAssistantMessageIndex = prevMessages.findIndex(msg =>
       msg.role === "assistant" && msg.content && Array.isArray(msg.content.steps)
     );
-    
+
     if (existingAssistantMessageIndex >= 0) {
       // Update existing message with a new step
       const updatedMessages = [...prevMessages];
@@ -2140,12 +2138,12 @@ export const addProcessingStep = async (messages, setMessages, icon, text, useWh
     } else {
       // Create a new consolidated message with steps array
       return [
-        ...prevMessages.filter(msg => 
+        ...prevMessages.filter(msg =>
           !msg.content || !msg.content.processingStep
         ),
         {
           role: "assistant",
-          content: { 
+          content: {
             steps: [{ icon, text, useWhiteIcons, iconType, animation }],
             processingStep: true
           }
@@ -2153,7 +2151,7 @@ export const addProcessingStep = async (messages, setMessages, icon, text, useWh
       ];
     }
   });
-  
+
   // Return a promise that resolves after a short delay
   return delay(100);
 };
@@ -2162,7 +2160,7 @@ export const addProcessingStep = async (messages, setMessages, icon, text, useWh
 export const urbanImpactAnalysis = async (question) => {
   // Simulate API delay
   await delay(1500);
-  
+
   // Return mock data
   return {
     explanation: "I've identified key areas in Downtown Los Angeles where strategic interventions could yield maximum impact with minimal changes. Based on analysis of adaptive reuse potential and development opportunities, three specific interventions stand out.",
@@ -2215,13 +2213,13 @@ export const handleNeighborhoodSelection = async (neighborhoodData, setMessages)
 
     // Brief delay to simulate processing
     await simulateQuickActionDelay();
-    
+
     // Format the content for the neighborhood data
     const neighborhoodMessage = {
       isUser: true,
       content: `Show development sites in ${neighborhoodData.name}`
     };
-    
+
     // Create adaptive reuse site cards
     const adaptiveReuseCards = neighborhoodData.adaptiveReuse.map((marker, index) => {
       const mockScore = Math.floor(60 + Math.random() * 35); // Random score between 60-95
@@ -2234,7 +2232,7 @@ export const handleNeighborhoodSelection = async (neighborhoodData, setMessages)
         'Urban Land Institute'
       ];
       const source = mockSources[index % mockSources.length];
-      
+
       return {
         type: 'Adaptive Reuse',
         title: `Adaptive Reuse Site ${index + 1}`,
@@ -2243,7 +2241,7 @@ export const handleNeighborhoodSelection = async (neighborhoodData, setMessages)
         source: marker.properties?.source || source
       };
     });
-    
+
     // Create development potential site cards
     const developmentCards = neighborhoodData.development.map((marker, index) => {
       const mockScore = Math.floor(55 + Math.random() * 35); // Random score between 55-90
@@ -2256,7 +2254,7 @@ export const handleNeighborhoodSelection = async (neighborhoodData, setMessages)
         'Economic Development Dept'
       ];
       const source = mockSources[index % mockSources.length];
-      
+
       return {
         type: 'Development',
         title: `Development Site ${index + 1}`,
@@ -2265,7 +2263,7 @@ export const handleNeighborhoodSelection = async (neighborhoodData, setMessages)
         source: marker.properties?.source || source
       };
     });
-    
+
     // Create response content object
     const responseContent = {
       neighborhoodData: {
@@ -2277,7 +2275,7 @@ export const handleNeighborhoodSelection = async (neighborhoodData, setMessages)
       preGraphText: `Analyzing development opportunities in ${neighborhoodData.name}...`,
       postGraphText: `Found ${neighborhoodData.markerCount} total development sites (${neighborhoodData.adaptiveReuse.length} adaptive reuse, ${neighborhoodData.development.length} new development).`
     };
-    
+
     // Add messages to the chat panel
     setMessages(prevMessages => [
       ...prevMessages,
@@ -2287,7 +2285,7 @@ export const handleNeighborhoodSelection = async (neighborhoodData, setMessages)
         content: responseContent
       }
     ]);
-    
+
     return true;
   } catch (error) {
     console.error('Error handling neighborhood selection:', error);

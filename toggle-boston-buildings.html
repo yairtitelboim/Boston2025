@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Toggle Boston Buildings</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 0;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .log {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Toggle Boston Buildings Layer</h1>
+    <p>This page contains JavaScript that can be injected into your map application to toggle the Boston Buildings layer.</p>
+    
+    <h2>Instructions</h2>
+    <ol>
+        <li>Open your map application at <a href="http://localhost:3000" target="_blank">http://localhost:3000</a></li>
+        <li>Open the browser's developer console (F12 or right-click > Inspect > Console)</li>
+        <li>Copy and paste the script below into the console and press Enter</li>
+    </ol>
+    
+    <h2>Script to Copy</h2>
+    <pre id="script-container">
+// Function to toggle the Boston Buildings layer
+(function toggleBostonBuildings() {
+    console.log('Starting Boston Buildings toggle script...');
+    
+    // Function to find elements containing "Boston Buildings" text
+    function findBostonBuildingsElements() {
+        return Array.from(document.querySelectorAll('*'))
+            .filter(el => el.textContent && el.textContent.includes('Boston Buildings'));
+    }
+    
+    // Function to find a checkbox near an element
+    function findNearbyCheckbox(element, maxLevelsUp = 5) {
+        let current = element;
+        
+        // First try to find a checkbox within the element
+        const innerCheckbox = element.querySelector('input[type="checkbox"]');
+        if (innerCheckbox) return innerCheckbox;
+        
+        // Then try to find a checkbox in parent elements
+        for (let i = 0; i < maxLevelsUp; i++) {
+            if (!current || !current.parentElement) break;
+            current = current.parentElement;
+            
+            const checkbox = current.querySelector('input[type="checkbox"]');
+            if (checkbox) return checkbox;
+        }
+        
+        return null;
+    }
+    
+    // First, make sure the layer menu is expanded
+    const expandButton = document.querySelector('button[title="Expand layer menu"]');
+    if (expandButton && window.getComputedStyle(expandButton).display !== 'none') {
+        console.log('Layer menu is collapsed, expanding it');
+        expandButton.click();
+    }
+    
+    // Wait a bit for the menu to expand
+    setTimeout(() => {
+        // Try to find the layer menu
+        const layerMenu = document.querySelector('div[class*="LayerToggleContainer"]') || 
+                         document.querySelector('div[class*="layer"][class*="menu"]');
+        
+        if (layerMenu) {
+            console.log('Found layer menu, scrolling to bottom');
+            layerMenu.scrollTop = layerMenu.scrollHeight;
+        } else {
+            console.log('Layer menu not found, will try to find Boston Buildings directly');
+        }
+        
+        // Wait for scrolling to complete
+        setTimeout(() => {
+            // Find elements containing "Boston Buildings" text
+            const bostonElements = findBostonBuildingsElements();
+            console.log(`Found ${bostonElements.length} elements containing 'Boston Buildings' text`);
+            
+            if (bostonElements.length > 0) {
+                // Try to find a checkbox near these elements
+                for (const el of bostonElements) {
+                    const checkbox = findNearbyCheckbox(el);
+                    
+                    if (checkbox) {
+                        console.log('Found checkbox near Boston Buildings text');
+                        console.log('Current state:', checkbox.checked ? 'checked' : 'unchecked');
+                        
+                        // Click the checkbox if it's not already checked
+                        if (!checkbox.checked) {
+                            checkbox.click();
+                            console.log('Clicked checkbox to enable Boston Buildings');
+                        } else {
+                            console.log('Boston Buildings already enabled');
+                        }
+                        
+                        return;
+                    }
+                }
+                
+                console.log('Could not find a checkbox near Boston Buildings elements');
+            } else {
+                console.log('No elements containing Boston Buildings text found');
+            }
+        }, 1000);
+    }, 1000);
+})();
+    </pre>
+    
+    <button id="copy-button">Copy Script to Clipboard</button>
+    
+    <h2>Log</h2>
+    <div class="log" id="log-container"></div>
+    
+    <script>
+        // Function to copy the script to clipboard
+        document.getElementById('copy-button').addEventListener('click', function() {
+            const scriptText = document.getElementById('script-container').textContent;
+            navigator.clipboard.writeText(scriptText)
+                .then(() => {
+                    logMessage('Script copied to clipboard! Paste it into your browser console.');
+                })
+                .catch(err => {
+                    logMessage('Error copying script: ' + err);
+                });
+        });
+        
+        // Function to log messages
+        function logMessage(message) {
+            const logContainer = document.getElementById('log-container');
+            const logEntry = document.createElement('div');
+            logEntry.textContent = new Date().toLocaleTimeString() + ': ' + message;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        // Initial log message
+        logMessage('Page loaded. Click the button to copy the script.');
+    </script>
+</body>
+</html>

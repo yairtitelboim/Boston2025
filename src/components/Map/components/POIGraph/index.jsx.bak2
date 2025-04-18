@@ -1,0 +1,1829 @@
+import React, { useState, useEffect, useRef } from 'react';
+import styled from 'styled-components';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title as ChartTitle,
+  Tooltip,
+  Legend as ChartLegend,
+  ArcElement,
+  PointElement,
+  LineElement,
+  Filler
+} from 'chart.js';
+import { Bar, Pie, Scatter, Line } from 'react-chartjs-2';
+import { getColorForCategory } from '../POIDataBar/utils/poiDataManager';
+import { SAMPLE_POI_DATA } from '../POIDataBar/constants';
+import { processVisiblePOIs } from './utils/poiDataProcessor';
+import Legend from './Legend';
+import { mapEventBus } from '../../../../utils/eventBus';
+
+// Register ChartJS components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  ArcElement,
+  PointElement,
+  LineElement,
+  ChartTitle,
+  Tooltip,
+  ChartLegend,
+  Filler  // Required for fill: true option
+);
+
+// Styled components
+const GraphContainer = styled.div`
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 45%;
+  background-color: rgba(22, 22, 22, 0.9);
+  color: white;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  transform: ${props => props.$isVisible ? 'translateY(0)' : 'translateY(100%)'};
+  transition: transform 0.3s ease-in-out;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
+  pointer-events: ${props => props.$isVisible ? 'auto' : 'none'};
+  opacity: ${props => props.$isVisible ? 1 : 0};
+`;
+
+const GraphHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+`;
+
+const HeaderControls = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const GraphTitle = styled.h3`
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+`;
+
+const POICounter = styled.span`
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.7);
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 4px 8px;
+  border-radius: 12px;
+  margin-left: 10px;
+  cursor: pointer;
+  position: relative;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+  }
+`;
+
+const CloseButton = styled.button`
+  background: none;
+  border: none;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px 8px;
+  opacity: 0.7;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  z-index: 20;
+
+  &:hover {
+    opacity: 1;
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  &:active {
+    background-color: rgba(255, 255, 255, 0.2);
+  }
+`;
+
+const GraphContent = styled.div`
+  flex: 1;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+`;
+
+const ChartContainer = styled.div`
+  flex: 1;
+  position: relative;
+  min-height: 0;
+  width: 100%;
+`;
+
+const ControlsContainer = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+`;
+
+const RefreshButton = styled.button`
+  background: transparent;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+
+  &:hover {
+    opacity: 1;
+  }
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+`;
+
+const StatsContainer = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+`;
+
+const StatCard = styled.div`
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 12px;
+
+  h4 {
+    margin: 0 0 8px 0;
+    opacity: 0.8;
+    font-size: 14px;
+    font-weight: 400;
+  }
+
+  p {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 600;
+  }
+
+  small {
+    display: block;
+    margin-top: 4px;
+    opacity: 0.6;
+  }
+`;
+
+const ToggleButton = styled.button`
+  position: absolute;
+  bottom: 60px;  // About an inch from bottom
+  right: 10px;   // Right side of screen
+  background-color: rgba(22, 22, 22, 0.9);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 9;
+
+  &:hover {
+    background-color: rgba(42, 42, 42, 0.9);
+  }
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+`;
+
+// Add a tab system for charts
+const TabContainer = styled.div`
+  display: flex;
+  margin-bottom: 16px;
+`;
+
+const Tab = styled.button`
+  padding: 8px 16px;
+  background: ${props => props.$active ? 'rgba(255, 255, 255, 0.1)' : 'transparent'};
+  border: none;
+  border-bottom: 2px solid ${props => props.$active ? '#FF4500' : 'transparent'};
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+`;
+
+// Sample data for testing
+const generateSampleData = () => {
+  const categories = ['Restaurants', 'Cafes', 'Bars', 'Shops', 'Cultural', 'Parks'];
+  const counts = [45, 32, 17, 53, 12, 8];
+  const popularityScores = [8.2, 7.9, 9.1, 6.7, 8.5, 9.3];
+
+  // Generate scatter plot data (rating vs reviews)
+  const scatterData = [];
+  const categoryColors = {
+    'Restaurants': '#ff9900',
+    'Cafes': '#cc6600',
+    'Bars': '#990099',
+    'Shops': '#0066ff',
+    'Cultural': '#cc3300',
+    'Parks': '#33cc33'
+  };
+
+  // Generate 50 sample POIs with random ratings and review counts
+  for (let i = 0; i < 50; i++) {
+    const categoryIndex = Math.floor(Math.random() * categories.length);
+    const category = categories[categoryIndex];
+
+    scatterData.push({
+      x: 1 + Math.random() * 4, // Rating from 1-5
+      y: Math.floor(Math.random() * 100), // Number of reviews
+      category: category,
+      color: categoryColors[category]
+    });
+  }
+
+  return {
+    categories,
+    counts,
+    popularityScores,
+    scatterData
+  };
+};
+
+const RefreshIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+  </svg>
+);
+
+const LiveIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ width: '16px', height: '16px' }}>
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.829a5 5 0 010-7.07m7.072 0a5 5 0 010 7.07M13 12a1 1 0 11-2 0 1 1 0 012 0z" />
+  </svg>
+);
+
+// Set debug logging flag
+const DEBUG_LOGGING = false;
+
+// Helper function for logging that checks DEBUG_LOGGING flag
+const log = (...args) => {
+  if (DEBUG_LOGGING) {
+    console.log(...args);
+  }
+};
+
+const POIGraph = ({ map, showPOIMarkers, setShowPOIMarkers, showOSMPOIs, setShowOSMPOIs, graphOnlyMode, setGraphOnlyMode, onCategoryVisibilityChange }) => {
+  const [isVisible, setIsVisible] = useState(false);
+  const [data, setData] = useState(generateSampleData());
+  const [isLive, setIsLive] = useState(true);
+  const [selectedPOI, setSelectedPOI] = useState(null);
+  const [showCategoryMenu, setShowCategoryMenu] = useState(false);
+  // Track which categories are visible
+  const [visibleCategories, setVisibleCategories] = useState({});
+  const [showOSM, setShowOSM] = useState(false);
+  // New state for curve mode
+  const [showCurve, setShowCurve] = useState(false);
+  const mapRef = useRef(map);
+  const chartRef = useRef(null);
+  const categoryMenuRef = useRef(null);
+
+  // Initialize visible categories when data changes
+  useEffect(() => {
+    if (data && data.categories) {
+      const initialVisibleCategories = {};
+      data.categories.forEach(category => {
+        const normalizedCategory = category.toLowerCase();
+        initialVisibleCategories[normalizedCategory] = true;
+      });
+      setVisibleCategories(initialVisibleCategories);
+      log('POI Graph: Initialized visible categories:', initialVisibleCategories);
+
+      mapEventBus.emit('poigraph:categoryVisibility', {
+        categories: initialVisibleCategories
+      });
+    }
+  }, [data]);
+
+  // Clean up logs and add OSM toggle handler
+  useEffect(() => {
+    if (visibleCategories && Object.keys(visibleCategories).length > 0) {
+      log('POI Graph: Category visibility changed:', visibleCategories);
+
+      mapEventBus.emit('poigraph:categoryVisibility', {
+        categories: visibleCategories
+      });
+    }
+  }, [visibleCategories]);
+
+  // Update map reference when it changes
+  useEffect(() => {
+    log('POI Graph: Map reference updated');
+    mapRef.current = map;
+  }, [map]);
+
+  // Listen for OSM layer visibility changes from LayerToggle
+  useEffect(() => {
+    const unsubscribe = mapEventBus.on('osmLayer:visibility', (event) => {
+      // If LayerToggle turned off OSM POIs, also turn off OSM data in the graph
+      if (!event.visible && showOSM) {
+        setShowOSM(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [showOSM]);
+
+  // Function to toggle category visibility
+  const toggleCategory = (category) => {
+    setVisibleCategories(prev => {
+      const newVisibility = {
+        ...prev,
+        [category]: !prev[category]
+      };
+      log('POI Graph: Category visibility toggled:', { category, isVisible: newVisibility[category] });
+      return newVisibility;
+    });
+  };
+
+  // Function to update Boston Buildings layer filtering
+  const updateBostonBuildingsFiltering = (categories) => {
+    // Access the map instance correctly - map is passed as a prop and is a ref to the Mapbox instance
+    if (!map || !map.current) {
+      log('POI Graph: Map instance not found');
+      return;
+    }
+
+    const mapInstance = map.current;
+
+    // Check if the layer exists
+    try {
+      if (!mapInstance.getStyle().layers.some(layer => layer.id === 'boston-buildings-fill')) {
+        log('POI Graph: Boston Buildings layer not found in map style');
+        return;
+      }
+    } catch (error) {
+      log('POI Graph: Error checking for Boston Buildings layer:', error);
+      return;
+    }
+
+    log('POI Graph: Updating Boston Buildings filtering', categories);
+
+    // Create a filter expression for the buildings layer
+    // Start with the default case (show buildings with no specific category)
+    const filterExpression = ['any'];
+
+    // Map of building types to POI categories
+    const buildingToPOICategory = {
+      'commercial': 'shops',
+      'office': 'shops',
+      'retail': 'restaurants',
+      'restaurant': 'restaurants',
+      'cafe': 'cafes',
+      'coffee_shop': 'cafes',
+      'food_court': 'restaurants',
+      'fast_food': 'restaurants',
+      'supermarket': 'restaurants',
+      'deli': 'restaurants',
+      'bakery': 'cafes',
+      'bar': 'bars',
+      'pub': 'bars',
+      'nightclub': 'bars',
+      'hotel': 'bars',
+      'residential': 'cultural',
+      'apartments': 'cultural',
+      'industrial': 'transportation',
+      'warehouse': 'transportation',
+      'school': 'education',
+      'university': 'education',
+      'hospital': 'healthcare',
+      'park': 'parks'
+    };
+
+    // Create a reverse mapping from POI categories to building types
+    const categoryToBuildingTypes = {};
+    Object.entries(buildingToPOICategory).forEach(([buildingType, category]) => {
+      const normalizedCategory = category.toLowerCase();
+      if (!categoryToBuildingTypes[normalizedCategory]) {
+        categoryToBuildingTypes[normalizedCategory] = [];
+      }
+      categoryToBuildingTypes[normalizedCategory].push(buildingType.toLowerCase());
+    });
+
+    log('POI Graph: Category to building types mapping:', categoryToBuildingTypes);
+
+    // Add filter conditions for visible categories
+    Object.entries(categories).forEach(([category, isVisible]) => {
+      const normalizedCategory = category.toLowerCase();
+      // Skip categories that are not visible
+      if (!isVisible) {
+        log(`POI Graph: Category ${category} is not visible, skipping its building types`);
+        return;
+      }
+
+      // Get all building types for this category
+      const buildingTypes = categoryToBuildingTypes[normalizedCategory];
+      if (!buildingTypes || buildingTypes.length === 0) {
+        log(`POI Graph: No building types found for category ${category}`);
+        return;
+      }
+
+      log(`POI Graph: Adding filter conditions for category ${category}:`, buildingTypes);
+
+      // Add each building type to the filter expression
+      buildingTypes.forEach(buildingType => {
+        filterExpression.push(['==', ['downcase', ['get', 'building']], buildingType]);
+      });
+    });
+
+    // Always include buildings with no specific category (using the default color)
+    // Only if we want to show buildings without categories
+    const showDefaultBuildings = true; // You can make this a state variable if needed
+    if (showDefaultBuildings) {
+      filterExpression.push(['!', ['has', 'building']]);
+    }
+
+    // Apply the filter to the buildings layer
+    try {
+      // Check if the filter expression has any conditions
+      if (filterExpression.length <= 1) {
+        log('POI Graph: No filter conditions, showing all buildings');
+        // If no categories are visible, show only buildings with no specific category
+        mapInstance.setFilter('boston-buildings-fill', ['!', ['has', 'building']]);
+      } else {
+        log('POI Graph: Applying filter to Boston Buildings layer:', filterExpression);
+        mapInstance.setFilter('boston-buildings-fill', filterExpression);
+      }
+    } catch (error) {
+      log('POI Graph: Error applying filter to Boston Buildings layer:', error);
+    }
+  };
+
+  // Handle visibility changes and emit events for map resizing
+  useEffect(() => {
+    log('POI Graph: Visibility changed to:', isVisible);
+
+    // Emit event for map container to adjust its size
+    mapEventBus.emit('poigraph:visibility', {
+      isVisible,
+      height: '40%'
+    });
+
+    // If the graph is now visible, trigger a map resize after animation
+    if (isVisible && mapRef.current?.current) {
+      setTimeout(() => {
+        mapRef.current.current.resize();
+        log('POI Graph: Triggered map resize');
+      }, 300);
+    }
+  }, [isVisible]);
+
+  // Handle marker selection from map
+  useEffect(() => {
+    log('POI Graph: Setting up marker selection handler');
+
+    const unsubscribe = mapEventBus.on('marker:selected', (event) => {
+      log('POI Graph: Received marker selection event:', event);
+      const { coordinates, properties } = event;
+
+      // Find matching point in scatter data
+      const datasets = prepareScatterDatasets(data.scatterData || []);
+      log('POI Graph: Current datasets:', {
+        count: datasets.length,
+        points: datasets.map(d => d.data.length),
+        categories: datasets.map(d => d.label)
+      });
+
+      let matchingPoint = null;
+      let matchingDatasetIndex = -1;
+      let matchingPointIndex = -1;
+
+      for (let i = 0; i < datasets.length; i++) {
+        const dataset = datasets[i];
+        log(`POI Graph: Searching dataset ${i} (${dataset.label}) for matching point`);
+
+        const point = dataset.data.find((p, index) => {
+          const matches = p.lngLat &&
+            Math.abs(p.lngLat[0] - coordinates[0]) < 0.0001 &&
+            Math.abs(p.lngLat[1] - coordinates[1]) < 0.0001;
+
+          if (matches) {
+            matchingDatasetIndex = i;
+            matchingPointIndex = index;
+            log(`POI Graph: Found matching point in dataset ${i} at index ${index}:`, p);
+          }
+
+          return matches;
+        });
+
+        if (point) {
+          matchingPoint = point;
+          break;
+        }
+      }
+
+      if (matchingPoint) {
+        log('POI Graph: Found matching point:', {
+          point: matchingPoint,
+          datasetIndex: matchingDatasetIndex,
+          pointIndex: matchingPointIndex
+        });
+
+        setSelectedPOI(matchingPoint);
+
+        // Update the chart to highlight the selected point and dim others
+        if (chartRef.current) {
+          const chart = chartRef.current;
+          const meta = chart.getDatasetMeta(0);
+
+          log('POI Graph: Updating chart highlighting:', {
+            totalPoints: meta.data.length,
+            selectedIndex: matchingPointIndex
+          });
+
+          // Dim all points first
+          meta.data.forEach((point, index) => {
+            const pointData = chart.data.datasets[0].data[index];
+            point.options.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+            point.options.borderColor = 'rgba(255, 255, 255, 0.2)';
+            point.options.radius = 5;
+          });
+
+          // Highlight the selected point
+          const selectedPoint = meta.data[matchingPointIndex];
+          if (selectedPoint) {
+            log('POI Graph: Highlighting selected point:', {
+              index: matchingPointIndex,
+              options: selectedPoint.options
+            });
+
+            selectedPoint.options.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+            selectedPoint.options.borderColor = '#ffffff';
+            selectedPoint.options.borderWidth = 3;
+            selectedPoint.options.radius = 7;
+          }
+
+          chart.update();
+
+          // Reset after animation
+          setTimeout(() => {
+            log('POI Graph: Resetting chart highlighting');
+            meta.data.forEach(point => {
+              point.options.backgroundColor = 'rgba(255, 255, 255, 0.5)';
+              point.options.borderColor = 'rgba(255, 255, 255, 0.5)';
+              point.options.borderWidth = 1;
+              point.options.radius = 5;
+            });
+            chart.update();
+          }, 4000);
+        } else {
+          log('POI Graph: Chart reference not available');
+        }
+      } else {
+        log('POI Graph: No matching point found for coordinates:', coordinates);
+      }
+    });
+
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
+  }, [data.scatterData]);
+
+  // Handle POI selection
+  const handlePOISelect = (poi) => {
+    if (!poi) {
+      log('POI Graph: No POI selected');
+      return;
+    }
+
+    log('POI Graph: POI selected:', {
+      name: poi.name,
+      category: poi.category,
+      coordinates: poi.lngLat,
+      fullPOI: poi
+    });
+
+    setSelectedPOI(poi);
+
+    // If we have a map instance and POI coordinates, pan to the selected POI
+    if (mapRef.current?.current && poi.lngLat) {
+      log('POI Graph: Emitting poi:selected event with data:', {
+        coordinates: poi.lngLat,
+        properties: {
+          name: poi.name,
+          type: poi.category,
+          lngLat: poi.lngLat
+        }
+      });
+
+      // Emit event for map to handle POI selection
+      mapEventBus.emit('poi:selected', {
+        coordinates: poi.lngLat,
+        properties: {
+          name: poi.name,
+          type: poi.category,
+          lngLat: poi.lngLat
+        }
+      });
+
+      // Pan to the POI location
+      log('POI Graph: Panning map to POI location:', poi.lngLat);
+      mapRef.current.current.flyTo({
+        center: poi.lngLat,
+        zoom: Math.max(mapRef.current.current.getZoom(), 15),
+        duration: 1000
+      });
+    } else {
+      log('POI Graph: Cannot emit event - missing map or coordinates:', {
+        hasMap: !!mapRef.current,
+        hasMapCurrent: !!(mapRef.current && mapRef.current.current),
+        hasCoordinates: !!poi.lngLat
+      });
+    }
+  };
+
+  // Update graph data from map when available
+  useEffect(() => {
+    if (!mapRef.current || !mapRef.current.current) {
+      return;
+    }
+
+    const mapInstance = mapRef.current.current;
+
+    const updateDataFromMap = () => {
+      log('POIGraph: Live update triggered', {
+        isLive,
+        graphOnlyMode,
+        showOSM
+      });
+
+      // If in graph-only mode, we still want to update the graph even if markers are hidden
+
+      const result = processVisiblePOIs(mapInstance, graphOnlyMode, showOSM);
+      if (result) {
+        log('POIGraph: New data processed:', {
+          categories: result.categories.length,
+          dataPoints: result.scatterData ? result.scatterData.length : 0,
+          source: showOSM ? 'OSM' : 'Miami'
+        });
+        setData(result);
+      }
+    };
+
+    // Define map change handlers
+    const handleMapMove = () => {
+      if (!isLive) return;
+      log('POI Graph: Map move detected');
+      updateDataFromMap();
+    };
+
+    const handleMapZoom = () => {
+      if (!isLive) return;
+      log('POI Graph: Map zoom detected');
+      updateDataFromMap();
+    };
+
+    const handleMapIdle = () => {
+      if (!isLive) return;
+      log('POI Graph: Map idle detected');
+        updateDataFromMap();
+    };
+
+    // Add event listeners for map changes
+    log('POI Graph: Setting up map event listeners');
+    mapInstance.on('moveend', handleMapMove);
+    mapInstance.on('zoomend', handleMapZoom);
+    mapInstance.on('idle', handleMapIdle);
+
+    // Initial update if visible and live
+    if (isVisible && isLive) {
+      log('POI Graph: Performing initial update');
+      updateDataFromMap();
+    }
+
+    // Update when graph-only mode changes
+    if (graphOnlyMode) {
+      log('POI Graph: Graph-only mode is active, updating data');
+      // Make sure POI markers are hidden in graph-only mode
+      if (mapInstance.getLayer('miami-pois')) {
+        mapInstance.setLayoutProperty('miami-pois', 'visibility', 'none');
+      }
+      // Hide all Mapbox POI layers
+      ['poi-label', 'natural-point-label', 'water-point-label'].forEach(layerId => {
+        if (mapInstance.getLayer(layerId)) {
+          log(`POI Graph: Hiding ${layerId} layer in useEffect`);
+          mapInstance.setLayoutProperty(layerId, 'visibility', 'none');
+        }
+      });
+      // Then update the data
+      updateDataFromMap();
+    }
+
+    // Cleanup
+    return () => {
+      log('POI Graph: Removing map event listeners');
+      mapInstance.off('moveend', handleMapMove);
+      mapInstance.off('zoomend', handleMapZoom);
+      mapInstance.off('idle', handleMapIdle);
+    };
+  }, [isVisible, isLive, graphOnlyMode, showPOIMarkers, showOSM]);
+
+  // Handle refresh button click
+  const handleRefresh = () => {
+    if (!mapRef.current || !mapRef.current.current) {
+      return;
+    }
+
+    log('POIGraph: Manual refresh requested');
+    const result = processVisiblePOIs(mapRef.current.current, graphOnlyMode, showOSM);
+    if (result) {
+      log('POIGraph: New data from manual refresh:', {
+        categories: result.categories.length,
+        dataPoints: result.scatterData ? result.scatterData.length : 0,
+        source: showOSM ? 'OSM' : 'Miami'
+      });
+      setData(result);
+    }
+  };
+
+  // Toggle live updates
+  const toggleLive = () => {
+    log('POI Graph: Toggling live mode from', isLive, 'to', !isLive);
+    setIsLive(!isLive);
+  };
+
+  // Toggle graph-only mode (keep graph updating but hide markers)
+  const toggleGraphOnly = () => {
+    const newGraphOnlyMode = !graphOnlyMode;
+    log('POI Graph: Toggling graph-only mode from', graphOnlyMode, 'to', newGraphOnlyMode);
+
+    // Update state
+    setGraphOnlyMode(newGraphOnlyMode);
+
+    // If enabling graph-only mode, hide markers but keep graph updating
+    if (newGraphOnlyMode) {
+      // Save current marker visibility state before hiding
+      log('POI Graph: Hiding POI markers for graph-only mode');
+
+      // This will trigger the OSMPOILayer to remove its markers
+      setShowPOIMarkers(false);
+
+      // Force a refresh of the graph data with the new mode
+      setTimeout(() => {
+        if (mapRef.current?.current) {
+          log('POI Graph: Refreshing data in graph-only mode');
+
+          // Make sure all POI layers are hidden
+          const mapInstance = mapRef.current.current;
+
+          // Hide the miami-pois layer
+          if (mapInstance.getLayer('miami-pois')) {
+            mapInstance.setLayoutProperty('miami-pois', 'visibility', 'none');
+          }
+
+          // Hide all Mapbox POI layers
+          ['poi-label', 'natural-point-label', 'water-point-label'].forEach(layerId => {
+            if (mapInstance.getLayer(layerId)) {
+              log(`POI Graph: Hiding ${layerId} layer`);
+              mapInstance.setLayoutProperty(layerId, 'visibility', 'none');
+            }
+          });
+
+          // Then get the data for the graph
+          const result = processVisiblePOIs(mapInstance, true, showOSM);
+          if (result) {
+            log('POI Graph: Updated data with', result.scatterData?.length || 0, 'points in graph-only mode');
+            setData(result);
+          }
+        }
+      }, 100); // Small delay to ensure state updates have been applied
+    } else {
+      // If disabling graph-only mode, show markers again
+      log('POI Graph: Showing POI markers again');
+      setShowPOIMarkers(true);
+
+      // Force a refresh of the graph data with normal mode
+      setTimeout(() => {
+        if (mapRef.current?.current) {
+          log('POI Graph: Refreshing data in normal mode');
+
+          // Restore visibility of all POI layers
+          const mapInstance = mapRef.current.current;
+
+          // Show the miami-pois layer
+          if (mapInstance.getLayer('miami-pois')) {
+            mapInstance.setLayoutProperty('miami-pois', 'visibility', 'visible');
+          }
+
+          // Show all Mapbox POI layers
+          ['poi-label', 'natural-point-label', 'water-point-label'].forEach(layerId => {
+            if (mapInstance.getLayer(layerId)) {
+              log(`POI Graph: Showing ${layerId} layer`);
+              mapInstance.setLayoutProperty(layerId, 'visibility', 'visible');
+            }
+          });
+
+          const result = processVisiblePOIs(mapInstance, false, showOSM);
+          if (result) {
+            log('POI Graph: Updated data with', result.scatterData?.length || 0, 'points in normal mode');
+            setData(result);
+          }
+        }
+      }, 100); // Small delay to ensure state updates have been applied
+    }
+  };
+
+  // Style for active/inactive state
+  const getButtonStyle = (active) => ({
+    opacity: active ? 1 : 0.5,
+    backgroundColor: active ? 'rgba(255, 255, 255, 0.1)' : 'transparent'
+  });
+
+  // Chart options
+  const barOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top',
+        labels: {
+          color: 'rgba(255, 255, 255, 0.8)'
+        }
+      },
+      title: {
+        display: true,
+        text: 'POI Distribution',
+        color: 'rgba(255, 255, 255, 0.8)',
+        font: {
+          size: 16
+        }
+      }
+    },
+    scales: {
+      x: {
+        grid: {
+          color: 'rgba(255, 255, 255, 0.1)'
+        },
+        ticks: {
+          color: 'rgba(255, 255, 255, 0.7)'
+        }
+      },
+      y: {
+        grid: {
+          color: 'rgba(255, 255, 255, 0.1)'
+        },
+        ticks: {
+          color: 'rgba(255, 255, 255, 0.7)'
+        }
+      }
+    }
+  };
+
+  const pieOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'right',
+        labels: {
+          color: 'rgba(255, 255, 255, 0.8)'
+        }
+      },
+      title: {
+        display: true,
+        text: 'POI Popularity Score',
+        color: 'rgba(255, 255, 255, 0.8)',
+        font: {
+          size: 16
+        }
+      }
+    }
+  };
+
+  // Bar chart data
+  const barChartData = {
+    labels: data.categories,
+    datasets: [
+      {
+        label: 'Number of POIs',
+        data: data.counts,
+        backgroundColor: [
+          '#ff9900', // Restaurants
+          '#cc6600', // Cafes
+          '#990099', // Bars
+          '#0066ff', // Shops
+          '#cc3300', // Cultural
+          '#33cc33'  // Parks
+        ],
+        borderWidth: 0
+      }
+    ]
+  };
+
+  // Pie chart data
+  const pieChartData = {
+    labels: data.categories,
+    datasets: [
+      {
+        label: 'Popularity Score',
+        data: data.popularityScores,
+        backgroundColor: [
+          '#ff9900', // Restaurants
+          '#cc6600', // Cafes
+          '#990099', // Bars
+          '#0066ff', // Shops
+          '#cc3300', // Cultural
+          '#33cc33'  // Parks
+        ],
+        borderWidth: 1,
+        borderColor: 'rgba(0, 0, 0, 0.2)'
+      }
+    ]
+  };
+
+  // Calculate total POIs
+  const totalPOIs = data.counts.reduce((sum, count) => sum + count, 0);
+
+  // Calculate highest popularity
+  const highestPopularity = Math.max(...data.popularityScores);
+  const highestPopularityCategory = data.categories[
+    data.popularityScores.indexOf(highestPopularity)
+  ];
+
+  // Icon components
+  const ChartIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+    </svg>
+  );
+
+  // Update scatter chart options to handle point clicks
+  const scatterOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: {
+      duration: 1000,
+      easing: 'easeOutQuart'
+    },
+    plugins: {
+      legend: {
+        display: showCurve,  // Show legend in curve mode
+        position: 'top',
+        labels: {
+          color: 'rgba(255, 255, 255, 0.8)',
+          font: {
+            size: 12
+          }
+        }
+      },
+      title: {
+        display: false
+      },
+      tooltip: {
+        callbacks: {
+          label: (context) => {
+            const point = context.raw;
+            if (!point) return '';
+
+            if (showCurve) {
+              // For bell curve mode
+              const datasetLabel = context.dataset.label;
+
+              // Check if this is a POI point on a curve
+              if (point.curveType) {
+                if (point.curveType === 'rating') {
+                  return `${point.name} (${point.category}) - Rating: ${point.x.toFixed(1)}, Reviews: ${point.originalY}`;
+                } else if (point.curveType === 'reviews') {
+                  return `${point.name} (${point.category}) - Rating: ${point.originalY.toFixed(1)}, Reviews: ${point.x}`;
+                }
+              }
+
+              // Otherwise it's a curve point
+              if (datasetLabel === 'Rating Distribution') {
+                return `Rating: ${point.x.toFixed(2)}, Relative Frequency: ${point.y.toFixed(4)}`;
+              } else if (datasetLabel === 'Reviews Distribution') {
+                return `Reviews: ${point.x.toFixed(0)}, Relative Frequency: ${point.y.toFixed(4)}`;
+              }
+              return `Value: ${point.x.toFixed(2)}, Relative Frequency: ${point.y.toFixed(4)}`;
+            } else {
+              // For scatter mode
+              const rating = typeof point.y === 'number' ? point.y.toFixed(1) : point.y;
+              const reviews = typeof point.x === 'number' ? point.x : 0;
+              return `${point.name || 'POI'} (${point.category}) - Rating: ${rating}, Reviews: ${reviews}`;
+            }
+          }
+        }
+      }
+    },
+    elements: {
+      point: {
+        radius: showCurve ? 0 : 5,
+        hoverRadius: showCurve ? 0 : 7
+      },
+      line: {
+        tension: 0.4,
+        borderWidth: 3,
+        fill: false
+      }
+    },
+    scales: {
+      y: {
+        title: {
+          display: true,
+          text: showCurve ? 'Probability Density' : 'Rating (stars)',
+          color: 'rgba(255, 255, 255, 0.7)'
+        },
+        min: showCurve ? 0 : undefined,
+        ticks: {
+          color: 'rgba(255, 255, 255, 0.7)',
+          callback: (value) => {
+            if (showCurve) {
+              return value.toExponential(1);
+            } else {
+              return typeof value === 'number' ? value.toFixed(1) : value;
+            }
+          }
+        },
+        grid: {
+          color: 'rgba(255, 255, 255, 0.1)'
+        }
+      },
+      x: {
+        title: {
+          display: true,
+          text: showCurve ? 'Value' : 'Number of Reviews',
+          color: 'rgba(255, 255, 255, 0.7)'
+        },
+        ticks: {
+          color: 'rgba(255, 255, 255, 0.7)',
+          callback: (value) => {
+            if (showCurve) {
+              return value.toFixed(1);
+            } else {
+              return value;
+            }
+          }
+        },
+        grid: {
+          color: 'rgba(255, 255, 255, 0.1)'
+        }
+      }
+    },
+    onClick: (event, elements) => {
+      // Skip click handling in curve mode
+      if (showCurve) {
+        log('POI Graph: Click ignored in curve mode');
+        return;
+      }
+
+      log('POI Graph: Chart click detected:', {
+        elements,
+        hasElements: elements.length > 0
+      });
+
+      if (elements.length > 0) {
+        const element = elements[0];
+        const datasets = prepareScatterDatasets(data.scatterData || []);
+        const dataset = datasets[element.datasetIndex];
+
+        log('POI Graph: Dataset found:', {
+          datasetIndex: element.datasetIndex,
+          pointIndex: element.index,
+          dataset: dataset
+        });
+
+        if (!dataset || !dataset.data) {
+          log('POI Graph: No dataset or data found');
+          return;
+        }
+
+        const point = dataset.data[element.index];
+        if (!point) {
+          log('POI Graph: No point found at index:', element.index);
+          return;
+        }
+
+        log('POI Graph: Point clicked:', point);
+        handlePOISelect(point);
+      }
+    }
+  };
+
+  // Function to calculate normal distribution value (bell curve)
+  const normalDistribution = (x, mean, stdDev) => {
+    return (1 / (stdDev * Math.sqrt(2 * Math.PI))) *
+           Math.exp(-0.5 * Math.pow((x - mean) / stdDev, 2));
+  };
+
+  // Function to generate bell curve points
+  const generateBellCurve = (values, numPoints = 100) => {
+    console.log(`%c[CURVE MODE] Generating bell curve for ${values.length} values`, 'background: #9c27b0; color: white;');
+
+    if (!values || values.length === 0) {
+      console.error('No values provided for curve generation');
+      return [];
+    }
+
+    // Calculate mean and standard deviation
+    const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
+    const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+    const stdDev = Math.sqrt(variance) || 1; // Prevent division by zero
+
+    console.log(`%c[CURVE MODE] Distribution statistics: mean=${mean.toFixed(2)}, stdDev=${stdDev.toFixed(2)}`, 'background: #9c27b0; color: white;');
+
+    // Find min and max values with a buffer
+    const min = Math.max(0, mean - 3 * stdDev);
+    const max = mean + 3 * stdDev;
+
+    console.log(`%c[CURVE MODE] Curve range: [${min.toFixed(2)}, ${max.toFixed(2)}]`, 'background: #9c27b0; color: white;');
+
+    const points = [];
+    const step = (max - min) / numPoints;
+
+    console.log(`%c[CURVE MODE] Step size for curve: ${step.toFixed(4)}`, 'background: #9c27b0; color: white;');
+
+    for (let i = 0; i <= numPoints; i++) {
+      const x = min + (step * i);
+      const y = normalDistribution(x, mean, stdDev);
+      points.push({ x, y });
+
+      // Log a few sample points
+      if (i === 0 || i === Math.floor(numPoints / 2) || i === numPoints) {
+        console.log(`%c[CURVE MODE] Point ${i}: x=${x.toFixed(2)}, y=${y.toExponential(4)}`, 'background: #9c27b0; color: white;');
+      }
+    }
+
+    console.log(`%c[CURVE MODE] Generated ${points.length} points for bell curve`, 'background: #9c27b0; color: white;');
+
+    return points;
+  };
+
+  // Function to generate histogram data from values
+  const generateHistogram = (values, numBins = 20) => {
+    console.log(`%c[CURVE MODE] Generating histogram with ${values.length} values and ${numBins} bins`, 'background: #9c27b0; color: white;');
+
+    if (!values || values.length === 0) {
+      console.error(`%c[CURVE MODE] No values provided for histogram`, 'background: red; color: white;');
+      return [];
+    }
+
+    // Find min and max values
+    let min = Math.min(...values);
+    let max = Math.max(...values);
+
+    // Add a small buffer to the range
+    const range = max - min;
+    min = Math.max(0, min - range * 0.05);
+    max = max + range * 0.05;
+
+    console.log(`%c[CURVE MODE] Histogram range: [${min.toFixed(2)}, ${max.toFixed(2)}]`, 'background: #9c27b0; color: white;');
+
+    // Create bins
+    const binWidth = (max - min) / numBins;
+    const bins = Array(numBins).fill(0);
+    const binCenters = [];
+
+    // Calculate bin centers
+    for (let i = 0; i < numBins; i++) {
+      binCenters.push(min + binWidth * (i + 0.5));
+    }
+
+    // Count values in each bin
+    values.forEach(value => {
+      if (value >= min && value <= max) {
+        const binIndex = Math.min(numBins - 1, Math.floor((value - min) / binWidth));
+        bins[binIndex]++;
+      }
+    });
+
+    // Normalize bins to get probability density
+    const totalCount = values.length;
+    const normalizedBins = bins.map(count => count / (totalCount * binWidth));
+
+    // Create points for the histogram
+    const points = [];
+    for (let i = 0; i < numBins; i++) {
+      points.push({
+        x: binCenters[i],
+        y: normalizedBins[i]
+      });
+    }
+
+    // Log some sample points
+    if (points.length > 0) {
+      console.log(`%c[CURVE MODE] Histogram sample points:`, 'background: #9c27b0; color: white;');
+      console.log(`%c[CURVE MODE] First bin: x=${points[0].x.toFixed(2)}, y=${points[0].y.toFixed(4)}`, 'background: #9c27b0; color: white;');
+      console.log(`%c[CURVE MODE] Middle bin: x=${points[Math.floor(numBins/2)].x.toFixed(2)}, y=${points[Math.floor(numBins/2)].y.toFixed(4)}`, 'background: #9c27b0; color: white;');
+      console.log(`%c[CURVE MODE] Last bin: x=${points[numBins-1].x.toFixed(2)}, y=${points[numBins-1].y.toFixed(4)}`, 'background: #9c27b0; color: white;');
+    }
+
+    console.log(`%c[CURVE MODE] Generated ${points.length} histogram points`, 'background: #9c27b0; color: white;');
+    return points;
+  };
+
+
+  // Prepare scatter chart datasets with dynamic axis ranges and selection state
+  const prepareScatterDatasets = (scatterData) => {
+    if (!scatterData || scatterData.length === 0) return [];
+
+    const categories = {};
+    let minRating = 5;
+    let maxRating = 1;
+    let minReviews = Number.MAX_SAFE_INTEGER;
+    let maxReviews = 0;
+
+    // For curve mode calculations
+    const allRatings = [];
+    const allReviews = [];
+
+    scatterData.forEach(point => {
+      if (!point) return;
+
+      const categoryLowerCase = point.category?.toLowerCase();
+      if (!visibleCategories[categoryLowerCase]) {
+        log('POI Graph: Skipping hidden category point:', categoryLowerCase);
+        return;
+      }
+
+      // In the data, x is rating and y is reviews
+      const rating = parseFloat(point.x);
+      const reviews = parseInt(point.y, 10);
+
+      // Collect all values for curve mode
+      if (!isNaN(rating)) allRatings.push(rating);
+      if (!isNaN(reviews)) allReviews.push(reviews);
+
+      // Only log when in curve mode and limit to first 5 points to avoid excessive logging
+      if (showCurve && allRatings.length <= 5) {
+        console.log(`%c[CURVE MODE] Processing point: rating=${rating}, reviews=${reviews}`, 'background: #9c27b0; color: white;');
+      }
+
+      if (!isNaN(rating)) {
+        minRating = Math.min(minRating, rating);
+        maxRating = Math.max(maxRating, rating);
+      }
+
+      if (!isNaN(reviews)) {
+        minReviews = Math.min(minReviews, reviews);
+        maxReviews = Math.max(maxReviews, reviews);
+      }
+
+      if (!categories[point.category]) {
+        categories[point.category] = {
+          label: point.category,
+          data: [],
+          backgroundColor: point.color,
+          pointRadius: 5,
+          pointHoverRadius: 7
+        };
+      }
+
+      categories[point.category].data.push({
+        x: reviews,
+        y: rating,
+        name: point.name,
+        category: point.category,
+        lngLat: point.lngLat,
+        isSelected: selectedPOI && selectedPOI.name === point.name
+      });
+    });
+
+    if (minRating <= maxRating) {
+      scatterOptions.scales.y.min = Math.floor(minRating);
+      scatterOptions.scales.y.max = Math.ceil(maxRating);
+    }
+
+    if (minReviews <= maxReviews) {
+      scatterOptions.scales.x.min = Math.floor(minReviews);
+      scatterOptions.scales.x.max = Math.ceil(maxReviews * 1.1);
+    }
+
+    // If curve mode is enabled, transform the data into bell curves
+    if (showCurve && allRatings.length > 0 && allReviews.length > 0) {
+      console.log(`%c[CURVE MODE] Generating bell curves for ${allRatings.length} ratings and ${allReviews.length} reviews`, 'background: #9c27b0; color: white;');
+
+      // Update y-axis scale for curve mode
+      scatterOptions.scales.y.min = 0;
+      // Don't set max to allow auto-scaling
+      scatterOptions.scales.y.max = undefined;
+
+      // Generate bell curves
+      const ratingCurveData = generateBellCurve(allRatings);
+      const reviewsCurveData = generateBellCurve(allReviews);
+
+      // Generate histograms for comparison
+      const ratingHistogramData = generateHistogram(allRatings);
+      const reviewsHistogramData = generateHistogram(allReviews);
+
+      // Find the maximum y values to normalize
+      let maxRatingY = 0;
+      let maxReviewsY = 0;
+
+      // Find max y values in both curves and histograms
+      ratingCurveData.forEach(point => {
+        maxRatingY = Math.max(maxRatingY, point.y);
+      });
+
+      ratingHistogramData.forEach(point => {
+        maxRatingY = Math.max(maxRatingY, point.y);
+      });
+
+      reviewsCurveData.forEach(point => {
+        maxReviewsY = Math.max(maxReviewsY, point.y);
+      });
+
+      reviewsHistogramData.forEach(point => {
+        maxReviewsY = Math.max(maxReviewsY, point.y);
+      });
+
+      console.log(`%c[CURVE MODE] Max Y values - Ratings: ${maxRatingY.toFixed(4)}, Reviews: ${maxReviewsY.toFixed(4)}`, 'background: #9c27b0; color: white;');
+
+      // Normalize the y values to make the curves more visible
+      ratingCurveData.forEach(point => {
+        point.y = point.y / maxRatingY;
+      });
+
+      reviewsCurveData.forEach(point => {
+        point.y = point.y / maxReviewsY;
+      });
+
+      // Calculate mean and standard deviation for ratings and reviews
+      const ratingMean = allRatings.reduce((sum, val) => sum + val, 0) / allRatings.length;
+      const ratingVariance = allRatings.reduce((sum, val) => sum + Math.pow(val - ratingMean, 2), 0) / allRatings.length;
+      const ratingStdDev = Math.sqrt(ratingVariance) || 1;
+
+      const reviewsMean = allReviews.reduce((sum, val) => sum + val, 0) / allReviews.length;
+      const reviewsVariance = allReviews.reduce((sum, val) => sum + Math.pow(val - reviewsMean, 2), 0) / allReviews.length;
+      const reviewsStdDev = Math.sqrt(reviewsVariance) || 1;
+
+      // Create the bell curve datasets
+      const ratingCurve = {
+        label: 'Rating Distribution',
+        data: ratingCurveData,
+        backgroundColor: 'rgba(255, 99, 132, 0.3)',
+        borderColor: 'rgba(255, 99, 132, 1)',
+        borderWidth: 3,
+        pointRadius: 0,
+        pointHoverRadius: 0,
+        showLine: true,
+        fill: true,
+        tension: 0.4,
+        type: 'line',  // Force line type
+        cubicInterpolationMode: 'monotone',
+        order: 1,  // Draw on top
+        yAxisID: 'y'
+      };
+
+      const reviewsCurve = {
+        label: 'Reviews Distribution',
+        data: reviewsCurveData,
+        backgroundColor: 'rgba(54, 162, 235, 0.3)',
+        borderColor: 'rgba(54, 162, 235, 1)',
+        borderWidth: 3,
+        pointRadius: 0,
+        pointHoverRadius: 0,
+        showLine: true,
+        fill: true,
+        tension: 0.4,
+        type: 'line',  // Force line type
+        cubicInterpolationMode: 'monotone',
+        order: 2,  // Draw below ratings
+        yAxisID: 'y'
+      };
+
+      // Create POI scatter datasets grouped by category
+      const poiDatasets = [];
+
+      // Process each category
+      Object.entries(categories).forEach(([category, dataset]) => {
+        // Create two datasets for each category - one for ratings and one for reviews
+        const ratingPoints = [];
+        const reviewPoints = [];
+
+        // Process each point in the category
+        dataset.data.forEach((point, index) => {
+          // In the scatter plot, x is reviews and y is rating
+          const rating = point.y; // Rating value (y in scatter is rating)
+          const reviews = point.x; // Review count (x in scatter is reviews)
+
+          // Calculate the y position on the bell curve
+          const ratingY = normalDistribution(rating, ratingMean, ratingStdDev) / maxRatingY;
+          const reviewsY = normalDistribution(reviews, reviewsMean, reviewsStdDev) / maxReviewsY;
+
+          // Add a small random offset to prevent stacking
+          const ratingOffset = (Math.random() * 0.4) - 0.2; // Random offset between -0.2 and 0.2
+          const reviewsOffset = (Math.random() * 0.4) - 0.2; // Random offset between -0.2 and 0.2
+
+          // Add point to rating curve dataset
+          ratingPoints.push({
+            x: rating,  // Rating value on x-axis
+            y: ratingY + ratingOffset,  // Height on the bell curve on y-axis with offset
+            name: point.name,
+            category: point.category,
+            lngLat: point.lngLat,
+            originalX: reviews,
+            originalY: rating,
+            curveType: 'rating',
+            isSelected: point.isSelected
+          });
+
+          // Add point to reviews curve dataset
+          reviewPoints.push({
+            x: reviews,  // Review count on x-axis
+            y: reviewsY + reviewsOffset,  // Height on the bell curve on y-axis with offset
+            name: point.name,
+            category: point.category,
+            lngLat: point.lngLat,
+            originalX: reviews,
+            originalY: rating,
+            curveType: 'reviews',
+            isSelected: point.isSelected
+          });
+        });
+
+        // Create rating dataset for this category
+        poiDatasets.push({
+          label: `${category} Ratings`,
+          data: ratingPoints,
+          backgroundColor: dataset.backgroundColor,
+          borderColor: dataset.borderColor,
+          pointRadius: 6,
+          pointHoverRadius: 8,
+          showLine: false,
+          type: 'scatter',
+          order: 0  // Draw on top of everything
+        });
+
+        // Create reviews dataset for this category
+        poiDatasets.push({
+          label: `${category} Reviews`,
+          data: reviewPoints,
+          backgroundColor: dataset.backgroundColor,
+          borderColor: dataset.borderColor,
+          pointRadius: 6,
+          pointHoverRadius: 8,
+          showLine: false,
+          type: 'scatter',
+          order: 0  // Draw on top of everything
+        });
+      });
+
+      console.log(`%c[CURVE MODE] Returning curve datasets with ${poiDatasets.length} POI datasets`, 'background: #9c27b0; color: white;');
+      return [ratingCurve, reviewsCurve, ...poiDatasets];
+    }
+
+    log('POI Graph: Prepared scatter datasets:', {
+      totalCategories: Object.keys(categories).length,
+      visibleCategories: Object.keys(categories)
+    });
+
+    return Object.values(categories);
+  };
+
+  // Handle toggle visibility
+  const handleVisibilityChange = (newVisibility) => {
+    log('POI Graph: Visibility changed:', newVisibility);
+    setIsVisible(newVisibility);
+  };
+
+  // Get category counts from scatter data
+  const getCategoryData = () => {
+    if (!data.scatterData) return [];
+
+    const counts = {};
+    data.scatterData.forEach(point => {
+      if (point.category) {
+        counts[point.category] = (counts[point.category] || 0) + 1;
+      }
+    });
+
+    return Object.entries(counts).map(([name, count]) => ({
+      name,
+      count
+    }));
+  };
+
+  // Update scatter plot when category visibility or curve mode changes
+  useEffect(() => {
+    log('POI Graph: Category visibility or curve mode changed, updating scatter plot');
+    if (chartRef.current) {
+      chartRef.current.update();
+    }
+  }, [visibleCategories, showCurve]);
+
+  // Toggle OSM data
+  const toggleOSM = () => {
+    const newShowOSM = !showOSM;
+    setShowOSM(newShowOSM);
+
+    // Emit event to update OSM data in the graph
+    mapEventBus.emit('osmGraph:visibility', { visible: newShowOSM });
+
+    // Also toggle the map markers by directly updating the showOSMPOIs state
+    if (newShowOSM) {
+      // Auto-enable OSM POIs in map layer
+      // Directly call the setter function passed as a prop
+      setShowOSMPOIs(true);
+
+      // Also update through layerStateManager for good measure
+      if (window.layerStateManager) {
+        window.layerStateManager.updateLayerState('showOSMPOIs', true);
+      }
+
+      // Force a direct update to the OSMPOILayer
+      mapEventBus.emit('osm:visibility', { visible: true });
+    }
+  };
+
+  // Toggle curve mode
+  const toggleCurve = () => {
+    const newShowCurve = !showCurve;
+    setShowCurve(newShowCurve);
+
+    // Log the change with more details for debugging
+    console.log(`%c[CURVE MODE] Toggling bell curve mode from ${showCurve} to ${newShowCurve}`, 'background: #9c27b0; color: white; font-size: 14px; padding: 3px;');
+
+    // Log chart data for debugging
+    if (data && data.scatterData) {
+      console.log(`%c[CURVE MODE] Current data points: ${data.scatterData.length}`, 'background: #9c27b0; color: white;');
+
+      // Extract ratings and reviews for analysis
+      const ratings = [];
+      const reviews = [];
+
+      data.scatterData.forEach(point => {
+        if (point) {
+          // In the data, x is rating and y is reviews
+          const rating = parseFloat(point.x);
+          const review = parseInt(point.y, 10);
+
+          if (!isNaN(rating)) ratings.push(rating);
+          if (!isNaN(review)) reviews.push(review);
+        }
+      });
+
+      console.log(`%c[CURVE MODE] Extracted ${ratings.length} ratings and ${reviews.length} reviews for analysis`, 'background: #9c27b0; color: white;');
+
+      // Log basic statistics
+      if (ratings.length > 0) {
+        const ratingMean = ratings.reduce((sum, val) => sum + val, 0) / ratings.length;
+        const ratingMin = Math.min(...ratings);
+        const ratingMax = Math.max(...ratings);
+        console.log(`%c[CURVE MODE] Ratings stats: mean=${ratingMean.toFixed(2)}, range=[${ratingMin.toFixed(2)}, ${ratingMax.toFixed(2)}]`, 'background: #9c27b0; color: white;');
+      }
+
+      if (reviews.length > 0) {
+        const reviewsMean = reviews.reduce((sum, val) => sum + val, 0) / reviews.length;
+        const reviewsMin = Math.min(...reviews);
+        const reviewsMax = Math.max(...reviews);
+        console.log(`%c[CURVE MODE] Reviews stats: mean=${reviewsMean.toFixed(2)}, range=[${reviewsMin.toFixed(2)}, ${reviewsMax.toFixed(2)}]`, 'background: #9c27b0; color: white;');
+      }
+
+      // Log a sample of the data
+      if (data.scatterData.length > 0) {
+        console.log(`%c[CURVE MODE] Sample data point:`, 'background: #9c27b0; color: white;');
+        console.log(data.scatterData[0]);
+      }
+    }
+
+    // Force chart update
+    if (chartRef.current) {
+      console.log(`%c[CURVE MODE] Updating chart reference`, 'background: #9c27b0; color: white;');
+      chartRef.current.update();
+    } else {
+      console.log(`%c[CURVE MODE] Chart reference not available`, 'background: #9c27b0; color: white;');
+    }
+  };
+
+  return (
+    <>
+      <ToggleButton
+        onClick={() => handleVisibilityChange(!isVisible)}
+        style={{
+          opacity: isVisible ? 0 : 1,
+          transform: isVisible ? 'translateY(-100px)' : 'none',
+          transition: 'opacity 0.3s, transform 0.3s',
+          pointerEvents: isVisible ? 'none' : 'auto'
+        }}
+      >
+        <ChartIcon />
+        Show POI Stats
+      </ToggleButton>
+
+      <GraphContainer $isVisible={isVisible}>
+        <GraphHeader>
+          <GraphTitle>
+            {showCurve ? 'POI Distribution Bell Curves' : 'POI Ratings vs. Number of Reviews'}
+            <POICounter>
+              {data.scatterData ? data.scatterData.length : 0} POIs
+            </POICounter>
+          </GraphTitle>
+          <HeaderControls>
+            <RefreshButton
+              onClick={toggleLive}
+              style={getButtonStyle(isLive)}
+              title={isLive ? 'Disable live updates' : 'Enable live updates'}
+            >
+              <LiveIcon />
+              Live
+            </RefreshButton>
+            <RefreshButton
+              onClick={toggleGraphOnly}
+              style={getButtonStyle(graphOnlyMode)}
+              title={graphOnlyMode ? 'Show markers on map' : 'Hide markers but keep graph updating'}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ width: '16px', height: '16px' }}>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              Graph Only
+            </RefreshButton>
+            <RefreshButton
+              onClick={toggleOSM}
+              style={getButtonStyle(showOSM)}
+              title={showOSM ? 'Hide OSM data' : 'Show OSM data'}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ width: '16px', height: '16px' }}>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              OSM Data
+            </RefreshButton>
+            <RefreshButton
+              onClick={toggleCurve}
+              style={getButtonStyle(showCurve)}
+              title={showCurve ? 'Show scatter plot' : 'Show bell curve distribution'}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ width: '16px', height: '16px' }}>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+              </svg>
+              Bell Curve
+            </RefreshButton>
+            <RefreshButton
+              onClick={handleRefresh}
+              style={getButtonStyle(!isLive)}
+              disabled={isLive}
+              title={isLive ? 'Disabled during live updates' : 'Manually refresh data'}
+            >
+              <RefreshIcon />
+              Refresh
+            </RefreshButton>
+            <CloseButton
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                log('POI Graph: Close button clicked, setting visible to false');
+                handleVisibilityChange(false);
+              }}
+              title="Close POI Stats"
+            >
+              ×
+            </CloseButton>
+          </HeaderControls>
+        </GraphHeader>
+
+        <GraphContent>
+          <ChartContainer>
+            {data.scatterData && data.scatterData.length > 0 ? (
+              showCurve ? (
+                <Line
+                  ref={chartRef}
+                  options={{
+                    ...scatterOptions,
+                    elements: {
+                      point: {
+                        radius: (context) => {
+                          // For curve lines, hide points
+                          // For POI points, show them
+                          const datasetLabel = context.dataset.label;
+                          if (datasetLabel === 'Rating Distribution' || datasetLabel === 'Reviews Distribution') {
+                            return 0; // Hide curve points
+                          }
+                          return 6; // Show POI points
+                        },
+                        hoverRadius: (context) => {
+                          const datasetLabel = context.dataset.label;
+                          if (datasetLabel === 'Rating Distribution' || datasetLabel === 'Reviews Distribution') {
+                            return 0; // Hide curve points
+                          }
+                          return 8; // Show POI points on hover
+                        }
+                      },
+                      line: {
+                        tension: 0.4,
+                        borderWidth: 3,
+                        fill: true
+                      }
+                    },
+                    scales: {
+                      ...scatterOptions.scales,
+                      y: {
+                        ...scatterOptions.scales.y,
+                        beginAtZero: true,
+                        max: 1.1,  // Add some space at the top
+                        title: {
+                          display: true,
+                          text: 'Relative Frequency',
+                          color: 'rgba(255, 255, 255, 0.7)'
+                        },
+                        grid: {
+                          color: 'rgba(255, 255, 255, 0.1)'
+                        }
+                      },
+                      x: {
+                        ...scatterOptions.scales.x,
+                        title: {
+                          display: true,
+                          text: 'Value',
+                          color: 'rgba(255, 255, 255, 0.7)'
+                        },
+                        grid: {
+                          color: 'rgba(255, 255, 255, 0.1)'
+                        }
+                      }
+                    },
+                    plugins: {
+                      ...scatterOptions.plugins,
+                      legend: {
+                        ...scatterOptions.plugins.legend,
+                        position: 'top',
+                        labels: {
+                          ...scatterOptions.plugins.legend.labels,
+                          color: 'rgba(255, 255, 255, 0.7)',
+                          filter: (legendItem) => {
+                            // Only show main curves and category labels in legend
+                            // Filter out individual POI datasets
+                            return legendItem.text === 'Rating Distribution' ||
+                                   legendItem.text === 'Reviews Distribution' ||
+                                   (!legendItem.text.includes(' Ratings') && !legendItem.text.includes(' Reviews'));
+                          }
+                        }
+                      }
+                    }
+                  }}
+                  data={{ datasets: prepareScatterDatasets(data.scatterData || []) }}
+                />
+              ) : (
+                <Scatter
+                  ref={chartRef}
+                  options={scatterOptions}
+                  data={{ datasets: prepareScatterDatasets(data.scatterData || []) }}
+                />
+              )
+            ) : (
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: '100%',
+                color: 'rgba(255,255,255,0.5)'
+              }}>
+                No POI data available. Try moving the map or clicking refresh.
+              </div>
+            )}
+          </ChartContainer>
+        </GraphContent>
+
+        {!showCurve && (
+          <Legend
+            categories={getCategoryData()}
+            onToggleCategory={toggleCategory}
+            visibleCategories={visibleCategories}
+          />
+        )}
+      </GraphContainer>
+    </>
+  );
+};
+
+export default POIGraph;

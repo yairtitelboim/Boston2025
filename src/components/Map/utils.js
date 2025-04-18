@@ -16,6 +16,7 @@ import styled from 'styled-components';
 import { createRoot } from 'react-dom/client';
 import { brickellGEOIDs } from './constants/geoIds';
 import { buffer, bbox } from '@turf/turf';
+import * as turf from '@turf/turf';
 
 // Coordinate generation
 export const generateRandomLocation = (bounds) => {
@@ -212,33 +213,97 @@ export const initializeAIAnalysis = async (map, onUpdate) => {
 };
 
 export const highlightPOIBuildings = (map, poiTypes, color) => {
-  const features = map.queryRenderedFeatures({
-    layers: ['3d-buildings'],
-    filter: ['has', 'height']
-  });
+  if (!map) return { buildings: new Map() };
   
-  const buildingCounts = new Map();
-  
-  features.forEach(building => {
-    const pois = map.queryRenderedFeatures(
-      map.project(building.geometry.coordinates[0][0]),
-      { layers: ['miami-pois'] }
-    );
-    
-    const relevantPOIs = pois.filter(poi => 
-      poiTypes.includes(poi.properties.type.toLowerCase())
-    );
-    
-    if (relevantPOIs.length > 0) {
-      buildingCounts.set(building.id, relevantPOIs.length);
-      map.setFeatureState(
-        { source: 'composite', sourceLayer: 'building', id: building.id },
-        { isHighlighted: true }
-      );
+  // First, clear any existing highlights
+  const existingLayers = map.getStyle().layers || [];
+  existingLayers.forEach(layer => {
+    if (layer.id.startsWith('highlight-layer-')) {
+      map.removeLayer(layer.id);
+      if (map.getSource(layer.id)) {
+        map.removeSource(layer.id);
+      }
     }
   });
   
-  return { buildings: buildingCounts };
+  // Query rendered POIs that match the requested types
+  const pois = map.queryRenderedFeatures({
+    layers: ['miami-pois']
+  }).filter(poi => poiTypes.includes(poi.properties.type.toLowerCase()));
+  
+  if (pois.length === 0) {
+    console.log('No matching POIs found');
+    return { buildings: new Map() };
+  }
+  
+  console.log(`Found ${pois.length} matching POIs`);
+  
+  // Track highlighted locations to prevent duplicates
+  const highlightedLocations = new Map();
+  
+  // Calculate unique location keys
+  const getLocationKey = (coordinates) => {
+    return `${coordinates[0].toFixed(5)},${coordinates[1].toFixed(5)}`;
+  };
+  
+  // Precalculated height offsets for better separation
+  const heightOffsets = Array.from({ length: 100 }, (_, i) => 200 * (i + 1));
+  
+  // Process POIs with a small distance check to avoid duplicate highlights
+  let highlightCount = 0;
+  pois.forEach((poi, index) => {
+    if (!poi.geometry || !poi.geometry.coordinates) return;
+    
+    const coordinates = poi.geometry.coordinates;
+    const locationKey = getLocationKey(coordinates);
+    
+    // Skip if already highlighted at this location
+    if (highlightedLocations.has(locationKey)) return;
+    
+    // Mark as highlighted
+    highlightedLocations.set(locationKey, true);
+    
+    const layerId = `highlight-layer-${highlightCount}`;
+    
+    try {
+      // Create a 3D extrusion that fully encloses the building
+      // Use turf.js to create a circular buffer around the point
+      const point = turf.point(coordinates);
+      const circle = turf.buffer(point, 50, { units: 'meters' });
+      
+      // Add source
+      map.addSource(layerId, {
+        type: 'geojson',
+        data: circle
+      });
+      
+      // Add layer with unique height offset
+      map.addLayer({
+        id: layerId,
+        type: 'fill-extrusion',
+        source: layerId,
+        layout: {
+          visibility: 'visible'
+        },
+        paint: {
+          'fill-extrusion-color': color || '#FF4500',
+          'fill-extrusion-opacity': 0.7,
+          'fill-extrusion-height': 3000 + heightOffsets[highlightCount % heightOffsets.length],
+          'fill-extrusion-base': 0,
+          // Ensure the highlight stays with the camera
+          'fill-extrusion-translate': [0, 0],
+          'fill-extrusion-translate-anchor': 'viewport'
+        }
+      });
+      
+      highlightCount++;
+    } catch (error) {
+      console.error(`Error adding highlight for POI ${index}:`, error);
+    }
+  });
+  
+  console.log(`Created ${highlightCount} highlight layers`);
+  return { buildings: new Map(pois.map((poi, i) => [i, poi])) };
 };
 
 export const parseClaudeResponse = (response) => {

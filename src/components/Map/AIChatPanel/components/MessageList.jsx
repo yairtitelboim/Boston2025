@@ -123,25 +123,58 @@ const NeighborhoodSiteCard = ({ site }) => {
     const parts = [];
     let lastIndex = 0;
     
-    // Regex patterns for what to highlight
+    // Helper function to determine if a capital word is at sentence beginning
+    const isWordAtSentenceStart = (fullText, matchIndex) => {
+      // Check if it's at the beginning of the text
+      if (matchIndex === 0) return true;
+      
+      // Look at the characters before the match
+      const precedingText = fullText.slice(0, matchIndex).trim();
+      const lastChar = precedingText.slice(-1);
+      
+      // Return true if the last character before the match is a sentence-ending punctuation
+      // or if it's preceded only by whitespace (beginning of text)
+      return ['', '.', '!', '?', '\n', '\r'].includes(lastChar);
+    };
+
+    // Improved regex patterns for highlighting
     const patterns = [
-      /\b\d+(\.\d+)?%?\b/g,  // Numbers and percentages
-      /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g,  // Dates like MM/DD/YYYY
-      /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(,\s+\d{4})?\b/g,  // Month names
-      /\b\d{4}\b/g,  // Years
-      /\b[A-Z][a-z]*(?:[-'][A-Za-z]+)*\b/g  // Words with capital letters
+      {
+        regex: /\b\d+(\.\d+)?%?\b/g,  // Numbers and percentages
+        filter: () => true // No filter, highlight all matches
+      },
+      {
+        regex: /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g,  // Dates like MM/DD/YYYY
+        filter: () => true
+      },
+      {
+        regex: /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(,\s+\d{4})?\b/g,  // Month names
+        filter: () => true
+      },
+      {
+        regex: /\b\d{4}\b/g,  // Years
+        filter: () => true
+      },
+      {
+        regex: /\b[A-Z][a-z]*(?:[-'][A-Za-z]+)*\b/g,  // Words with capital letters
+        // Only highlight capitalized words that are NOT at the beginning of sentences
+        filter: (match, index) => !isWordAtSentenceStart(text, match.index)
+      }
     ];
     
     // Find all matches from all patterns
     const matches = [];
     patterns.forEach(pattern => {
       let match;
-      while ((match = pattern.exec(text)) !== null) {
-        matches.push({
-          start: match.index,
-          end: match.index + match[0].length,
-          text: match[0]
-        });
+      while ((match = pattern.regex.exec(text)) !== null) {
+        // Only add match if it passes the filter
+        if (pattern.filter(match, matches.length)) {
+          matches.push({
+            start: match.index,
+            end: match.index + match[0].length,
+            text: match[0]
+          });
+        }
       }
     });
     
@@ -447,9 +480,16 @@ const MessageList = ({
 
   // Effect to handle scrolling to loading indicators when needed
   useEffect(() => {
+    // Only auto-scroll when:
+    // 1. There's an explicit loading indicator we need to focus on
+    // 2. The last message is from the user (meaning the user just sent a message)
+    // This prevents auto-scrolling when AI responses come in
+    const shouldAutoScroll = window.focusOnLoadingIndicators || 
+                           (messages.length > 0 && messages[messages.length - 1].isUser);
+    
     if (window.focusOnLoadingIndicators && loadingIndicatorsRef.current) {
       loadingIndicatorsRef.current.scrollIntoView({ behavior: "smooth" });
-    } else if (messagesEndRef.current) {
+    } else if (messagesEndRef.current && shouldAutoScroll) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);

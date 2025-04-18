@@ -1,30 +1,29 @@
 import styled, { keyframes } from 'styled-components';
 
 export const MapContainer = styled.div`
-  position: relative;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   width: 100vw;
-  height: 100vh;
   overflow: hidden;
 
   @media (max-width: 768px) {
-    height: 100vh; // Fill entire viewport height
-    position: fixed; // Ensure it stays fixed
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    position: fixed;
+    height: 100vh;
   }
 
   .callout-annotation {
     cursor: default;
-    
+
     &:hover {
       z-index: 2;
     }
   }
 
   .mapboxgl-marker {
-    z-index: 1;
+    z-index: 1 !important;
   }
 
   .custom-popup .mapboxgl-popup-content {
@@ -72,7 +71,7 @@ export const MapContainer = styled.div`
     padding: 8px !important;
     right: 4px !important;
     top: 4px !important;
-    
+
     &:hover {
       color: white !important;
       background: none !important;
@@ -97,7 +96,7 @@ export const LayerToggleContainer = styled.div`
   top: 10px;
   right: 10px;
   z-index: 2;
-  
+
   @media (max-width: 768px) {
     top: auto;
     bottom: 20px;
@@ -175,4 +174,4 @@ export const Panel = styled.div`
   z-index: 2;
 `;
 
-/* ... rest of the existing styles ... */ 
+/* ... rest of the existing styles ... */

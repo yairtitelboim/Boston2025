@@ -1,73 +1,29 @@
 import React from 'react';
-import { Sparkles, Brain, Zap, Cpu } from 'lucide-react';
-import {
-  ModelSelectContainer,
-  ModelIcon,
-  ModelSelect,
-  StyledOption,
-  LoadingDots,
-  LoadingDot,
-  ModelLoadingIndicator
-} from '../StyledComponents';
+import { ModelSelectContainer, ModelSelect, StyledOption, AIBadge } from '../StyledComponents';
+import { Sparkles } from 'lucide-react';
 import { MODEL_COLORS } from '../mockData';
 
-const ModelSelector = ({ 
-  selectedModel, 
-  handleModelChange
-}) => {
-  // Helper function to get the icon for each model
-  const getModelIcon = (modelId) => {
-    switch(modelId) {
-      case 'gpt4':
-        return <Sparkles />;
-      case 'claude3':
-        return <Brain />;
-      case 'llama3':
-        return <Zap />;
-      case 'deepseek':
-        return <Cpu />;
-      default:
-        return <Sparkles />;
-    }
-  };
-
-  // Helper function to apply the model color theme to elements
-  const getModelTheme = () => {
-    return MODEL_COLORS[selectedModel] || MODEL_COLORS.claude3;
-  };
-  
+const ModelSelector = ({ selectedModel, handleModelChange }) => {
   return (
-    <ModelSelectContainer 
-      $bgColor={getModelTheme()} 
-      className="model-select-container"
-    >
-      <ModelIcon>
-        {getModelIcon(selectedModel)}
-      </ModelIcon>
-      <ModelSelect 
-        value={selectedModel} 
-        onChange={handleModelChange}
-        className="model-select"
-      >
-        <StyledOption value="gpt4" $bgColor={MODEL_COLORS.gpt4 + '30'}>
-          GPT-4
+    <ModelSelectContainer $bgColor={MODEL_COLORS[selectedModel]}>
+      <ModelSelect value={selectedModel} onChange={handleModelChange}>
+        <StyledOption value="tourist" $bgColor={MODEL_COLORS.tourist + '30'}>
+          Tourist Guide
         </StyledOption>
-        <StyledOption value="claude3" $bgColor={MODEL_COLORS.claude3 + '30'}>
-          Claude 3
+        <StyledOption value="local" $bgColor={MODEL_COLORS.local + '30'}>
+          Local Expert
         </StyledOption>
-        <StyledOption value="llama3" $bgColor={MODEL_COLORS.llama3 + '30'}>
-          Llama 3
+        <StyledOption value="business" $bgColor={MODEL_COLORS.business + '30'}>
+          Business Travel
         </StyledOption>
-        <StyledOption value="deepseek" $bgColor={MODEL_COLORS.deepseek + '30'}>
-          DeepSeek
+        <StyledOption value="family" $bgColor={MODEL_COLORS.family + '30'}>
+          Family Planner
         </StyledOption>
       </ModelSelect>
-      <LoadingDots>
-        <LoadingDot $delay="0s" />
-        <LoadingDot $delay="0.2s" />
-        <LoadingDot $delay="0.4s" />
-      </LoadingDots>
-      <ModelLoadingIndicator $bgColor={getModelTheme()} />
+      <AIBadge $bgColor={MODEL_COLORS[selectedModel]}>
+        <Sparkles />
+        AI Guide
+      </AIBadge>
     </ModelSelectContainer>
   );
 };

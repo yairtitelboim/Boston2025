@@ -88,7 +88,7 @@ export const particleLayers = {
 };
 
 export const buildingLayers = {
-  buildings3d: {
+  buildings: {
     id: '3d-buildings',
     source: 'composite',
     'source-layer': 'building',
@@ -116,8 +116,26 @@ export const buildingLayers = {
           ]
         ]
       ],
-      'fill-extrusion-height': ['get', 'height'],
-      'fill-extrusion-opacity': 1
+      'fill-extrusion-height': [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        15, ['get', 'height'],
+        16, ['*', ['get', 'height'], 0.95],
+        17, ['*', ['get', 'height'], 0.9]
+      ],
+      'fill-extrusion-base': ['get', 'min_height'],
+      'fill-extrusion-opacity': [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        15, 0.9,
+        16, 0.85,
+        17, 0.8
+      ],
+      'fill-extrusion-vertical-gradient': true,
+      'fill-extrusion-ambient-occlusion-intensity': 0.3,
+      'fill-extrusion-ambient-occlusion-radius': 3
     }
   }
 }; 

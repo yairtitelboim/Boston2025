@@ -292,6 +292,7 @@ export const use3DBuildings = (map) => {
     show3DBuildings,
     is3DLoading,
     toggle3D,
-    reset3DBuildings
+    reset3DBuildings,
+    setShow3DBuildings
   };
 }; 

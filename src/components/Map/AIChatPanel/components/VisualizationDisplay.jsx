@@ -223,6 +223,133 @@ const VisualizationDisplay = ({ visualizationType, data }) => {
   // State to track if card is clicked
   const [clickedCard, setClickedCard] = useState(null);
   
+  // State for tracking which intervention cards are expanded
+  const [expandedCards, setExpandedCards] = useState({});
+  
+  // Format description to highlight important information like in NeighborhoodSiteCard
+  const formatDescriptionText = (text) => {
+    if (!text) return null;
+    
+    // Split the text into parts to highlight
+    const parts = [];
+    let lastIndex = 0;
+    
+    // Helper function to determine if a capital word is at sentence beginning
+    const isWordAtSentenceStart = (fullText, matchIndex) => {
+      // Check if it's at the beginning of the text
+      if (matchIndex === 0) return true;
+      
+      // Look at the characters before the match
+      const precedingText = fullText.slice(0, matchIndex).trim();
+      const lastChar = precedingText.slice(-1);
+      
+      // Return true if the last character before the match is a sentence-ending punctuation
+      // or if it's preceded only by whitespace (beginning of text)
+      return ['', '.', '!', '?', '\n', '\r'].includes(lastChar);
+    };
+
+    // Improved regex patterns for highlighting
+    const patterns = [
+      {
+        regex: /\$\d+(\.\d+)?[KMB]?\s*-\s*\$\d+(\.\d+)?[KMB]?/g,  // Price ranges like $4.2M - $6.5M
+        filter: () => true
+      },
+      {
+        regex: /\b\d+(\.\d+)?%?\b/g,  // Numbers and percentages
+        filter: () => true
+      },
+      {
+        regex: /\b\d+(\.\d+)?-\d+(\.\d+)?%?\b/g,  // Number ranges like 15-20% or 3-5
+        filter: () => true
+      },
+      {
+        regex: /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g,  // Dates like MM/DD/YYYY
+        filter: () => true
+      },
+      {
+        regex: /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(,\s+\d{4})?\b/g,  // Month names
+        filter: () => true
+      },
+      {
+        regex: /\b\d{4}\b/g,  // Years
+        filter: () => true
+      },
+      {
+        regex: /\b[A-Z][a-z]*(?:[-'][A-Za-z]+)*\b/g,  // Words with capital letters
+        // Only highlight capitalized words that are NOT at the beginning of sentences
+        filter: (match, index) => !isWordAtSentenceStart(text, match.index)
+      }
+    ];
+    
+    // Find all matches from all patterns
+    const matches = [];
+    patterns.forEach(pattern => {
+      let match;
+      const regex = new RegExp(pattern.regex);
+      while ((match = regex.exec(text)) !== null) {
+        // Only add match if it passes the filter
+        if (pattern.filter(match, matches.length)) {
+          matches.push({
+            start: match.index,
+            end: match.index + match[0].length,
+            text: match[0]
+          });
+        }
+      }
+    });
+    
+    // Sort matches by start position
+    matches.sort((a, b) => a.start - b.start);
+    
+    // Filter out overlapping matches
+    const filteredMatches = [];
+    for (let i = 0; i < matches.length; i++) {
+      // Check for overlap with existing matches
+      let hasOverlap = false;
+      for (let j = 0; j < filteredMatches.length; j++) {
+        if (matches[i].start < filteredMatches[j].end && matches[i].end > filteredMatches[j].start) {
+          // If current match is longer than existing overlapping match, replace it
+          if ((matches[i].end - matches[i].start) > (filteredMatches[j].end - filteredMatches[j].start)) {
+            filteredMatches[j] = matches[i];
+          }
+          hasOverlap = true;
+          break;
+        }
+      }
+      if (!hasOverlap) {
+        filteredMatches.push(matches[i]);
+      }
+    }
+    
+    // Re-sort filtered matches
+    filteredMatches.sort((a, b) => a.start - b.start);
+    
+    // Build the result with highlighted parts
+    filteredMatches.forEach(match => {
+      if (match.start > lastIndex) {
+        parts.push(text.substring(lastIndex, match.start));
+      }
+      parts.push(<strong key={match.start} className="font-extrabold text-white">{match.text}</strong>);
+      lastIndex = match.end;
+    });
+    
+    // Add any remaining text
+    if (lastIndex < text.length) {
+      parts.push(text.substring(lastIndex));
+    }
+    
+    return <>{parts}</>;
+  };
+  
+  // Toggle expansion state of a specific card
+  const toggleCardExpansion = (cardName, e) => {
+    e.stopPropagation(); // Prevent triggering the parent onClick
+    setExpandedCards(prev => ({
+      ...prev,
+      [cardName]: !prev[cardName]
+    }));
+  };
+  
   // State for skeleton loading and staggered rendering
   const [isLoading, setIsLoading] = useState(false);
   const [loadedSections, setLoadedSections] = useState({
@@ -1212,51 +1339,208 @@ const VisualizationDisplay = ({ visualizationType, data }) => {
             <div className="p-4">
               <h3 className="font-bold text-white mb-3">Top Interventions</h3>
               <div className="space-y-4">
-                {data.graphData.interventionDetails.map((intervention, idx) => (
+                {data.graphData.interventionDetails.map((intervention, idx) => {
+                  // Generate additional paragraphs that will only show in expanded view
+                  // This simulates having more content without changing the data structure
+                  const additionalParagraphs = [
+                    `Further analysis shows that implementing ${intervention.name} would create significant positive outcomes for the community. Based on similar interventions in comparable urban environments, we can expect to see improvements in quality of life metrics by 15-20% within the first year.`,
+                    `Budget considerations for this intervention include initial capital expenditure of approximately ${intervention.cost} with ongoing maintenance costs of roughly 8-12% annually. The projected return on investment, measured in both economic and social impact, is expected to exceed costs within 3-5 years of implementation.`
+                  ];
+                  
+                  return (
                   <ClickableCard 
                     key={idx}
-                    className={`bg-gray-800 rounded-lg p-3 border border-gray-700 ${clickedCard === intervention.name ? 'clicked' : ''}`}
+                    className={`bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-purple-500 transition-colors ${clickedCard === intervention.name ? 'clicked' : ''}`}
+                    style={{
+                      borderLeft: intervention.name.includes("Adaptive Reuse") ? "4px solid #10B981" : 
+                              intervention.name.includes("Transit") ? "4px solid #3B82F6" : 
+                              intervention.name.includes("Mobility") ? "4px solid #6366F1" : 
+                              "4px solid #8B5CF6",
+                      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.2)"
+                    }}
                     onClick={() => handleCardClick(intervention.name)}
                   >
-                    <div className="flex justify-between items-center mb-2">
-                      <div className="flex items-center">
-                        {getInterventionIcon(intervention.name)}
-                        <h4 className="font-bold text-white">{intervention.name}</h4>
-                      </div>
-                      <span className="text-sm bg-gray-700 px-2 py-1 rounded text-gray-300">
-                        {intervention.cost}
-                      </span>
+                    {/* Header section */}
+                    <div className="flex items-center mb-3">
+                      {getInterventionIcon(intervention.name)}
+                      <h4 className="font-bold text-white text-lg">{intervention.name}</h4>
                     </div>
-                    <p className="text-gray-300 text-sm mb-2">{intervention.description}</p>
-                    <div className="text-sm text-gray-400">
-                      <div className="flex items-center gap-1 mb-1">
-                        <Clock className="w-4 h-4" />
-                        <span>{intervention.timeframe}</span>
+                    
+                    {/* Cost tag - now below header */}
+                    <div className="mb-3">
+                      <div className="inline-flex items-center">
+                        <span className="text-xs text-gray-400 mr-2">Investment:</span>
+                        <span className="text-xs font-semibold bg-gray-900 px-2 py-1 rounded-md text-white border border-gray-700">
+                          {intervention.cost}
+                        </span>
                       </div>
-                      <div className="flex flex-wrap justify-between mt-2">
-                        <div className="flex flex-wrap gap-2">
-                          {intervention.benefits.map((benefit, bidx) => (
-                            <span key={bidx} className="bg-gray-700 px-2 py-1 rounded-full text-xs text-cyan-300">
-                              {benefit}
-                            </span>
-                          ))}
+                    </div>
+                    
+                    <div className="border-t border-gray-700 opacity-30 mb-4"></div>
+                    
+                    {/* Description with expand/collapse functionality */}
+                    <div className="mb-3">
+                      {/* Collapsed view with gradient fade - only show main description */}
+                      {!expandedCards[intervention.name] && (
+                        <div className="relative">
+                          <div 
+                            className="text-gray-300 text-sm leading-relaxed overflow-hidden whitespace-normal"
+                            style={{
+                              maxHeight: '4.8em',
+                              position: 'relative',
+                            }}
+                          >
+                            {formatDescriptionText(intervention.description)}
+                            {/* Gradient fade overlay when collapsed - positioned so it only affects text beyond 3 lines */}
+                            <div 
+                              className="absolute bottom-0 left-0 right-0 h-7" 
+                              style={{
+                                background: 'linear-gradient(to bottom, rgba(31, 41, 55, 0) 20%, rgba(31, 41, 55, 0.95) 90%)'
+                              }}
+                            />
+                          </div>
                         </div>
-                        <button 
-                          className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 text-xs rounded-lg transition-colors mt-1"
-                          onClick={(e) => {
-                            e.stopPropagation(); // Prevent triggering the parent onClick
-                            handleCardClick(intervention.name);
-                          }}
-                        >
-                          <span>View Details</span>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M5 12h14M12 5l7 7-7 7"/>
-                          </svg>
-                        </button>
-                      </div>
+                      )}
+                      
+                      {/* Expanded view with full content plus additional paragraphs */}
+                      {expandedCards[intervention.name] && (
+                        <div className="text-gray-300 text-sm whitespace-normal">
+                          <div className="mb-4">
+                            {formatDescriptionText(intervention.description)}
+                          </div>
+                          
+                          {/* Additional paragraphs that only appear in expanded view */}
+                          {additionalParagraphs.map((paragraph, i) => (
+                            <div key={i} className="mb-4">
+                              {formatDescriptionText(paragraph)}
+                            </div>
+                          ))}
+                          
+                          {/* Implementation Timeline Visualization - only in expanded view */}
+                          <div className="mb-5 mt-4">
+                            <div className="flex items-center gap-1 mb-2">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                              </svg>
+                              <span className="text-xs font-medium text-gray-400">Implementation Timeline</span>
+                            </div>
+                            <div className="relative h-2 bg-gray-800 rounded-full overflow-hidden">
+                              <div className="absolute inset-0 flex">
+                                {/* Timeline progress bar based on timeframe */}
+                                <div className={`h-full ${
+                                  intervention.timeframe?.toLowerCase().includes('1') || 
+                                  intervention.timeframe?.toLowerCase().includes('immediate') || 
+                                  intervention.timeframe?.toLowerCase().includes('short') ? 
+                                    'w-1/4 bg-green-600' : 
+                                  intervention.timeframe?.toLowerCase().includes('3') || 
+                                  intervention.timeframe?.toLowerCase().includes('5') || 
+                                  intervention.timeframe?.toLowerCase().includes('medium') ? 
+                                    'w-1/2 bg-blue-600' : 
+                                    'w-3/4 bg-purple-600'
+                                } rounded-l-full`}></div>
+                                <div className="h-full bg-gray-700 flex-grow rounded-r-full"></div>
+                              </div>
+                            </div>
+                            <div className="flex justify-between text-xs text-gray-500 mt-1">
+                              <span>Start</span>
+                              <span>Implementation complete</span>
+                            </div>
+                          </div>
+                          
+                          {/* Benefits tags - only in expanded view */}
+                          <div className="flex flex-wrap mb-4">
+                            <div className="text-xs font-medium text-gray-400 w-full mb-2">Benefits:</div>
+                            {intervention.benefits.map((benefit, bidx) => {
+                              // Determine color based on benefit content
+                              let bgColor = "bg-gray-700";
+                              let textColor = "text-gray-300";
+                              
+                              if (benefit.toLowerCase().includes("economic") || benefit.toLowerCase().includes("financial") || benefit.toLowerCase().includes("revenue")) {
+                                bgColor = "bg-green-900";
+                                textColor = "text-green-300";
+                              } else if (benefit.toLowerCase().includes("health") || benefit.toLowerCase().includes("safety") || benefit.toLowerCase().includes("security")) {
+                                bgColor = "bg-blue-900";
+                                textColor = "text-blue-300";
+                              } else if (benefit.toLowerCase().includes("social") || benefit.toLowerCase().includes("community") || benefit.toLowerCase().includes("public")) {
+                                bgColor = "bg-purple-900";
+                                textColor = "text-purple-300";
+                              } else if (benefit.toLowerCase().includes("environmental") || benefit.toLowerCase().includes("sustainability") || benefit.toLowerCase().includes("climate")) {
+                                bgColor = "bg-emerald-900";
+                                textColor = "text-emerald-300";
+                              }
+                              
+                              return (
+                                <span 
+                                  key={bidx} 
+                                  className={`${bgColor} ${textColor} text-xs rounded-full px-3 py-1 mr-2 mb-2 shadow-sm`}
+                                >
+                                  {benefit}
+                                </span>
+                              );
+                            })}
+                          </div>
+                          
+                          {/* Relationships between interventions - only in expanded view */}
+                          <div className="mt-4 mb-3">
+                            <div className="flex items-center gap-1 mb-2">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                              </svg>
+                              <span className="text-xs font-medium text-gray-400">Related Interventions</span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {/* Generate related interventions dynamically based on name */}
+                              {data.graphData.interventionDetails
+                                .filter(related => related.name !== intervention.name)
+                                .slice(0, 2) // Limit to 2 related interventions for demonstration
+                                .map((related, idx) => (
+                                  <span key={idx} className="inline-flex items-center text-xs bg-gray-800 text-blue-300 px-3 py-1.5 rounded-md border border-gray-700">
+                                    <span className="w-2 h-2 rounded-full bg-blue-500 mr-1.5"></span>
+                                    {related.name}
+                                  </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
+                    
+                    {/* Timeframe - always visible */}
+                    <div className="flex items-center gap-1 mb-4">
+                      <Clock className="w-4 h-4 text-blue-400" />
+                      <span className="bg-gray-700 px-2 py-0.5 rounded-md text-blue-300 text-xs">{intervention.timeframe}</span>
+                    </div>
+                    
+                    {/* Source information */}
+                    <div className="text-xs text-gray-500 mb-3">
+                      Source: LA City Planning Department
+                    </div>
+                    
+                    {/* Toggle button */}
+                    <button 
+                      onClick={(e) => toggleCardExpansion(intervention.name, e)}
+                      className="text-blue-400 hover:text-blue-300 text-sm inline-flex items-center gap-1 transition-colors"
+                      aria-expanded={expandedCards[intervention.name]}
+                    >
+                      {expandedCards[intervention.name] ? (
+                        <>
+                          <span>Show less</span>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="18 15 12 9 6 15"></polyline>
+                          </svg>
+                        </>
+                      ) : (
+                        <>
+                          <span>Read more</span>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                          </svg>
+                        </>
+                      )}
+                    </button>
                   </ClickableCard>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -1327,53 +1611,183 @@ const VisualizationDisplay = ({ visualizationType, data }) => {
               <div className="space-y-4">
                 {data.graphData.serviceDetails.map((service, idx) => (
                   <ClickableCard 
-                    key={idx} 
-                    className={`bg-gray-800 rounded-lg p-3 border border-gray-700 ${clickedCard === service.name ? 'clicked' : ''}`}
+                    key={idx}
+                    className={`bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-blue-500 transition-colors ${clickedCard === service.name ? 'clicked' : ''}`}
+                    style={{
+                      borderLeft: "4px solid #3B82F6",
+                      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.2)"
+                    }}
                     onClick={() => handleCardClick(service.name)}
                   >
-                    <div className="flex justify-between items-center mb-2">
-                      <div className="flex items-center">
-                        <CardIcon className="wave" $bgColor="#8B5CF6">
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M6 9h12v7H6z"></path>
-                            <path d="M19 19H5a2 2 0 01-2-2V7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2z"></path>
-                            <path d="M8 19v3"></path>
-                            <path d="M16 19v3"></path>
-                          </svg>
-                        </CardIcon>
-                        <h4 className="font-bold text-white">{service.name}</h4>
-                      </div>
-                      <span className="text-sm bg-purple-900 px-2 py-1 rounded text-purple-200">
-                        {service.impact} Impact
-                      </span>
+                    {/* Header section */}
+                    <div className="flex items-center mb-3">
+                      {getInterventionIcon(service.name)}
+                      <h4 className="font-bold text-white text-lg">{service.name}</h4>
                     </div>
-                    <p className="text-gray-300 text-sm mb-2">{service.description}</p>
-                    <div className="text-sm text-gray-400">
-                      <div className="flex items-center gap-1 mb-1">
-                        <Clock className="w-4 h-4" />
-                        <span>{service.timeframe}</span>
+                    
+                    {/* Cost tag - now below header */}
+                    <div className="mb-3">
+                      <div className="inline-flex items-center">
+                        <span className="text-xs text-gray-400 mr-2">Investment:</span>
+                        <span className="text-xs font-semibold bg-gray-900 px-2 py-1 rounded-md text-white border border-gray-700">
+                          {service.cost}
+                        </span>
                       </div>
-                      <div className="flex flex-wrap justify-between mt-2">
-                        <div className="flex flex-wrap gap-2">
-                          {service.benefits.map((benefit, bidx) => (
-                            <span key={bidx} className="bg-gray-700 px-2 py-1 rounded-full text-xs text-purple-300">
-                              {benefit}
-                            </span>
-                          ))}
+                    </div>
+                    
+                    <div className="border-t border-gray-700 opacity-30 mb-4"></div>
+                    
+                    {/* Description */}
+                    <div className="mb-3">
+                      {!expandedCards[service.name] && (
+                        <div className="text-gray-300 text-sm leading-relaxed">
+                          {service.description}
                         </div>
-                        <button 
-                          className="flex items-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 text-xs rounded-lg transition-colors mt-1"
-                          onClick={(e) => {
-                            e.stopPropagation(); // Prevent triggering the parent onClick
-                            handleCardClick(service.name);
-                          }}
-                        >
-                          <span>View Corridor</span>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M5 12h14M12 5l7 7-7 7"/>
-                          </svg>
-                        </button>
-                      </div>
+                      )}
+                      
+                      {expandedCards[service.name] && (
+                        <div className="text-gray-300 text-sm leading-relaxed">
+                          <div className="mb-4">
+                            {service.description}
+                          </div>
+                          
+                          {/* Implementation Timeline Visualization - only in expanded view */}
+                          <div className="mb-5 mt-4">
+                            <div className="flex items-center gap-1 mb-2">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                              </svg>
+                              <span className="text-xs font-medium text-gray-400">Implementation Timeline</span>
+                            </div>
+                            <div className="relative h-2 bg-gray-800 rounded-full overflow-hidden">
+                              <div className="absolute inset-0 flex">
+                                {/* Timeline progress bar based on timeframe */}
+                                <div className={`h-full ${
+                                  service.timeframe?.toLowerCase().includes('1') || 
+                                  service.timeframe?.toLowerCase().includes('immediate') || 
+                                  service.timeframe?.toLowerCase().includes('short') ? 
+                                    'w-1/4 bg-green-600' : 
+                                  service.timeframe?.toLowerCase().includes('3') || 
+                                  service.timeframe?.toLowerCase().includes('5') || 
+                                  service.timeframe?.toLowerCase().includes('medium') ? 
+                                    'w-1/2 bg-blue-600' : 
+                                    'w-3/4 bg-purple-600'
+                                } rounded-l-full`}></div>
+                                <div className="h-full bg-gray-700 flex-grow rounded-r-full"></div>
+                              </div>
+                            </div>
+                            <div className="flex justify-between text-xs text-gray-500 mt-1">
+                              <span>Start</span>
+                              <span>Implementation complete</span>
+                            </div>
+                          </div>
+                          
+                          {/* Benefits tags - only in expanded view */}
+                          <div className="flex flex-wrap mb-4">
+                            <div className="text-xs font-medium text-gray-400 w-full mb-2">Benefits:</div>
+                            {service.benefits.map((benefit, bidx) => {
+                              // Determine color based on benefit content
+                              let bgColor = "bg-gray-700";
+                              let textColor = "text-gray-300";
+                              
+                              if (benefit.toLowerCase().includes("economic") || benefit.toLowerCase().includes("financial") || benefit.toLowerCase().includes("revenue")) {
+                                bgColor = "bg-green-900";
+                                textColor = "text-green-300";
+                              } else if (benefit.toLowerCase().includes("health") || benefit.toLowerCase().includes("safety") || benefit.toLowerCase().includes("security")) {
+                                bgColor = "bg-blue-900";
+                                textColor = "text-blue-300";
+                              } else if (benefit.toLowerCase().includes("social") || benefit.toLowerCase().includes("community") || benefit.toLowerCase().includes("public")) {
+                                bgColor = "bg-purple-900";
+                                textColor = "text-purple-300";
+                              } else if (benefit.toLowerCase().includes("environmental") || benefit.toLowerCase().includes("sustainability") || benefit.toLowerCase().includes("climate")) {
+                                bgColor = "bg-emerald-900";
+                                textColor = "text-emerald-300";
+                              }
+                              
+                              return (
+                                <span 
+                                  key={bidx} 
+                                  className={`${bgColor} ${textColor} text-xs rounded-full px-3 py-1 mr-2 mb-2 shadow-sm`}
+                                >
+                                  {benefit}
+                                </span>
+                              );
+                            })}
+                          </div>
+                          
+                          {/* Relationships between corridors - only in expanded view */}
+                          <div className="mt-4 mb-3">
+                            <div className="flex items-center gap-1 mb-2">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                              </svg>
+                              <span className="text-xs font-medium text-gray-400">Related Corridors</span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {/* Generate related corridors dynamically based on name */}
+                              {data.graphData.serviceDetails
+                                .filter(related => related.name !== service.name)
+                                .slice(0, 2) // Limit to 2 related corridors for demonstration
+                                .map((related, idx) => (
+                                  <span key={idx} className="inline-flex items-center text-xs bg-gray-800 text-blue-300 px-3 py-1.5 rounded-md border border-gray-700">
+                                    <span className="w-2 h-2 rounded-full bg-blue-500 mr-1.5"></span>
+                                    {related.name}
+                                  </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Timeframe - always visible */}
+                    <div className="flex items-center gap-1 mb-4">
+                      <Clock className="w-4 h-4 text-blue-400" />
+                      <span className="bg-gray-700 px-2 py-0.5 rounded-md text-blue-300 text-xs">{service.timeframe}</span>
+                    </div>
+                    
+                    {/* Source information */}
+                    <div className="text-xs text-gray-500 mb-3">
+                      Source: LA Transit Authority
+                    </div>
+                    
+                    {/* Toggle button */}
+                    <div className="flex justify-between items-center">
+                      <button 
+                        onClick={(e) => toggleCardExpansion(service.name, e)}
+                        className="text-blue-400 hover:text-blue-300 text-sm inline-flex items-center gap-1 transition-colors"
+                        aria-expanded={expandedCards[service.name]}
+                      >
+                        {expandedCards[service.name] ? (
+                          <>
+                            <span>Show less</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="18 15 12 9 6 15"></polyline>
+                            </svg>
+                          </>
+                        ) : (
+                          <>
+                            <span>Read more</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                          </>
+                        )}
+                      </button>
+                      
+                      {/* View Corridor button */}
+                      <button 
+                        className="flex items-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 text-xs rounded-lg transition-colors shadow-md"
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent triggering the parent onClick
+                          handleCardClick(service.name);
+                        }}
+                      >
+                        <span>View Corridor</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M5 12h14M12 5l7 7-7 7"/>
+                        </svg>
+                      </button>
                     </div>
                   </ClickableCard>
                 ))}

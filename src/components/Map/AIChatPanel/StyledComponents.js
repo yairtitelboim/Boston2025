@@ -19,6 +19,7 @@ import {
   colorTransition,
   accentLineExpand
 } from './animations';
+import { motion } from 'framer-motion';
 
 // New keyframes for button effects
 const buttonBlurEffect = keyframes`
@@ -33,6 +34,27 @@ const buttonBlurEffect = keyframes`
   100% {
     filter: blur(0);
     transform: scale(1);
+  }
+`;
+
+// Add blink animation for Diffusion tag
+const diffusionTagBlink = keyframes`
+  0% {
+    background-color: transparent;
+    border-line: 2px solid #D66000;
+    transform: scale(1);
+  }
+  50% {
+    background-color: #D66000; /* darker orange */
+    border-color: #D66000;
+    border-line: 1px solid #D66000;
+    transform: scale(1.20);
+    box-shadow: 0 0 8px rgba(214, 96, 0, 0.7);
+  }
+  100% {
+    background-color: #D66000; /* darker orange */
+    border-color: #D66000;
+    transform: scale(1.1);
   }
 `;
 
@@ -87,26 +109,86 @@ const fadeInUp = keyframes`
   }
 `;
 
+// Animation keyframes
+const playIconEnter = keyframes`
+  from {
+    opacity: 0;
+    transform: scale(0);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+`;
+
+const playIconHover = keyframes`
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.2);
+  }
+`;
+
+// Add new keyframes for terminal animations
+const typewriterAnimation = keyframes`
+  from { width: 0 }
+  to { width: 100% }
+`;
+
+const blinkCursor = keyframes`
+  from, to { border-right-color: transparent }
+  50% { border-right-color: #D66000 }
+`;
+
+const fadeInOut = keyframes`
+  0% { opacity: 0; transform: translateY(5px); }
+  10% { opacity: 1; transform: translateY(0); }
+  90% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-5px); }
+`;
+
+// Add new loading animation keyframe
+const loadingRotate = keyframes`
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+`;
+
+// Add new keyframe for circle pulse
+const circlePulse = keyframes`
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+`;
+
 // Main Panel Component
 export const Panel = styled.div`
   position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 35%;
-  background: #1A1A1A;
+  left: 10px;
+  top: 10px;
+  width: 480px;
+  background: transparent;
   color: white;
   display: flex;
   flex-direction: column;
   z-index: 1;
-  transform: translateX(${props => props.$isCollapsed ? '-100%' : '0'});
-  transition: transform 0.3s ease;
-  box-shadow: ${props => props.$isCollapsed ? 'none' : '0 0 20px rgba(0,0,0,0.5)'};
+  transform: translateX(${props => props.$isCollapsed ? '-110%' : '0'});
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
 
   @media (max-width: 768px) {
     position: fixed;
     width: 100%;
-    height: 60vh;
+    height: 30vh;
     top: auto;
     bottom: 0;
     left: 0;
@@ -115,7 +197,6 @@ export const Panel = styled.div`
     border-top-left-radius: 16px;
     border-top-right-radius: 16px;
     z-index: 1000;
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 `;
 
@@ -138,53 +219,38 @@ export const ChatHeader = styled.div`
 export const ModelSelectContainer = styled.div`
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   background-color: ${props => props.$bgColor || '#0088cc'};
-  border-radius: 8px;
-  padding: 4px 8px;
+  border-radius: 6px;
+  padding: 2px 6px;
   transition: background-color 0.3s ease, transform 0.3s ease, filter 0.3s ease;
   position: relative;
   overflow: hidden;
+  transform: scale(0.6);
+  margin-left: auto;
   
   &.loading {
     animation: ${panelPulseAnimation} 0.1s ease-in-out;
     filter: contrast(1.2) brightness(1.1);
-    box-shadow: 0 0 10px 2px ${props => props.$bgColor || 'rgba(0, 136, 204, 0.5)'};
-    
-    &::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: linear-gradient(
-        90deg, 
-        ${props => props.$bgColor}10,
-        ${props => props.$bgColor}40,
-        ${props => props.$bgColor}10
-      );
-      animation: ${shimmer} 0.4s infinite;
-      background-size: 200% 100%;
-    }
+    box-shadow: 0 0 6px 1px ${props => props.$bgColor || 'rgba(0, 136, 204, 0.5)'};
   }
 `;
 
 export const AIBadge = styled.div`
   display: flex;
   align-items: center;
-  font-size: 12px;
+  font-size: 10px;
   color: rgba(255, 255, 255, 0.9);
   background: ${props => props.$bgColor ? `${props.$bgColor}30` : 'rgba(0, 136, 204, 0.2)'};
-  padding: 2px 10px;
+  padding: 1px 6px;
   border-radius: 3px;
-  margin-left: 5px;
+  margin-left: 3px;
   border: 1px solid ${props => props.$bgColor ? `${props.$bgColor}40` : 'rgba(0, 136, 204, 0.3)'};
   
   svg {
-    width: 10px;
-    height: 10px;
-    margin-right: 3px;
+    width: 8px;
+    height: 8px;
+    margin-right: 2px;
   }
 `;
 
@@ -277,17 +343,17 @@ export const ModelOptionRow = styled.div`
 export const ModelSelect = styled.select`
   background-color: transparent;
   color: white;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
-  padding: 2px 6px;
-  padding-right: 20px;
+  padding: 2px 4px;
+  padding-right: 16px;
   border-radius: 4px;
   border: none;
   cursor: pointer;
   appearance: none;
   position: relative;
   z-index: 1;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 4px center;
   
@@ -315,11 +381,11 @@ export const ChatMessages = styled.div`
   overflow-y: auto;
   padding: 20px;
   scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch; /* For smoother scrolling on iOS */
+  -webkit-overflow-scrolling: touch;
 
   @media (max-width: 768px) {
     padding: 12px;
-    max-height: calc(60vh - 138px); /* Adjust based on header and input area heights */
+    max-height: calc(30vh - 24px);
   }
 
   /* Custom scrollbar styling */
@@ -420,40 +486,173 @@ export const Input = styled.input`
 `;
 
 // Initial prompt components
-export const InitialPrompt = styled.div`
-  text-align: center;
-  font-size: 20px;
-  color: rgba(255, 255, 255, 0.9);
-  margin-bottom: 15px; /* Reduced spacing below prompt */
-  padding: 0 20px;
+export const InitialQuestionsContainer = styled.div`
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  background: #1A1A1A;
+  border-radius: 16px;
   position: relative;
-  margin-top: 30px; /* Reduced from 80px to 20px to eliminate large gap */
-  
-  /* Add divider line */
-  &::after {
-    content: '';
-    position: absolute;
-    bottom: -25px; /* Increased from -10px to -20px to create more space */
-    left: 50%;
-    transform: translateX(-50%);
-    width: 80%;
-    height: 1px;
-    background: linear-gradient(to right, 
-      rgba(255, 255, 255, 0), 
-      rgba(255, 255, 255, 0.2) 50%, 
-      rgba(255, 255, 255, 0));
+  overflow: hidden;
+  min-height: 140px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+`;
+
+export const LeftContainer = styled.div`
+  flex: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+`;
+
+export const RightContainer = styled.div`
+  flex: 8;
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  padding-left: 25px;
+`;
+
+export const HeaderContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 24px;
+`;
+
+export const PlayIcon = styled.div`
+  width: ${props => props.$isLoading ? '48px' : '0'};
+  height: ${props => props.$isLoading ? '48px' : '0'};
+  border-style: ${props => props.$isLoading ? 'solid' : 'solid'};
+  border-width: ${props => props.$isLoading ? '4px' : '16px 0 16px 26px'};
+  border-color: ${props => props.$isLoading 
+    ? 'rgba(255, 255, 255, 0.2) rgba(255, 255, 255, 0.2) rgba(255, 255, 255, 0.2) #FFFFFF'
+    : 'transparent transparent transparent #FFFFFF'};
+  border-radius: ${props => props.$isLoading ? '50%' : '0'};
+  margin-left: ${props => props.$isLoading ? '0' : '6px'};
+  animation: ${props => props.$isLoading 
+    ? css`${loadingRotate} 1s linear infinite`
+    : css`${playIconEnter} 0.5s ease-out forwards`};
+  transform-origin: center;
+  transition: all 0.3s ease;
+`;
+
+export const PlayButton = styled.div`
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 8px solid #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+
+  &:hover {
+    border-color: ${props => props.$isLoading ? '#FFFFFF' : '#D66000'};
+    
+    ${PlayIcon} {
+      border-color: ${props => props.$isLoading 
+        ? 'rgba(255, 255, 255, 0.2) rgba(255, 255, 255, 0.2) rgba(255, 255, 255, 0.2) #FFFFFF'
+        : 'transparent transparent transparent #D66000'};
+      animation: ${props => props.$isLoading 
+        ? css`${loadingRotate} 1s linear infinite`
+        : css`${playIconHover} 0.3s forwards`};
+    }
   }
 `;
 
-export const PromptText = styled.div`
-  font-size: 16px;
-  color: rgba(255, 255, 255, 0.6);
+export const TextContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+`;
+
+export const ModelBadge = styled.div`
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #FF6B00;
+  cursor: pointer;
+  margin-bottom: 4px;
+  opacity: 0;
+  animation: ${circlePulse} 2s infinite ease-in-out;
+  animation-delay: 0.5s;
+  animation-fill-mode: forwards;
+  box-shadow: 0 0 10px rgba(255, 107, 0, 0.5);
+`;
+
+export const Title = styled.h1`
+  font-size: 26px;
+  font-weight: 900;
+  color: #FFFFFF;
+  margin: 0;
+  display: block;
+  line-height: 1;
+  letter-spacing: 0.01em;
+`;
+
+export const Subtitle = styled.div`
+  font-size: 17.5px;
   font-weight: 300;
-  margin-top: 12px;
+  font-style: italic;
+  color: #FFFFFF;
+  margin: 0;
+  margin-top: 4px;
+  display: block;
+  line-height: 1;
+  letter-spacing: 0.03em;
+`;
+
+export const QuestionText = styled.div`
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 8px;
+  text-align: center;
   line-height: 1.4;
-  max-width: 85%;
-  margin-left: auto;
-  margin-right: auto;
+  max-width: 280px;
+  font-weight: 400;
+  letter-spacing: 0.2px;
+`;
+
+export const QuestionButton = styled(motion.button)`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 28px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  color: white;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 20px;
+  backdrop-filter: blur(5px);
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+
+  svg {
+    transition: transform 0.3s ease;
+  }
+
+  &:hover svg {
+    transform: translateX(3px);
+  }
+
+  &:active {
+    transform: translateY(1px);
+  }
 `;
 
 // Question components
@@ -477,135 +676,6 @@ export const QuestionIcon = styled.div`
         default: return 'none';
       }
     }};
-  }
-`;
-
-export const QuestionButton = styled.button`
-  width: 82%;
-  margin: 5px auto;
-  padding: 18px 20px;
-  background: ${props => 
-    props.$bgGradient || 
-    'linear-gradient(135deg, rgba(50, 50, 50, 0.6), rgba(40, 40, 40, 0.8))'};
-  background-size: 200% 200%;
-  border: 1px solid var(--accent-color);
-  border-radius: 16px;
-  color: white;
-  font-size: 17px;
-  font-weight: 400;
-  text-align: left;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  transition: all 0.3s ease, 
-    background 0.3s ease, 
-    border-color 0.3s ease, 
-    box-shadow 0.3s ease, 
-    transform 0.3s ease;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15),
-    0 0 0 2px rgba(var(--model-color-rgb), 0.1);
-  position: relative;
-  overflow: hidden;
-  --model-color-rgb: ${props => props.$modelColorRgb || '0, 136, 204'};
-  --accent-color: ${props => props.$accentColor || 'rgba(255, 255, 255, 0.2)'};
-  --icon-glow: ${props => props.$iconGlow || 'rgba(255, 255, 255, 0.7)'};
-  --hover-gradient: ${props => 
-    props.$hoverBgGradient || 
-    'linear-gradient(135deg, rgba(60, 60, 60, 0.7), rgba(50, 50, 50, 0.9))'};
-  
-  &::before {
-    display: none;
-  }
-  
-  &:hover {
-    background: var(--hover-gradient);
-    border-color: var(--accent-color);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2),
-      0 0 0 2px rgba(var(--model-color-rgb), 0.2);
-    transform: translateY(-2px);
-    
-    ${QuestionIcon} {
-      svg {
-        animation-duration: 1s;
-        filter: drop-shadow(0 0 6px var(--icon-glow));
-      }
-    }
-  }
-  
-  &.clicking {
-    animation: ${buttonClickEffect} 0.15s ease-out;
-    border-color: var(--accent-color);
-    box-shadow: 0 0 20px 4px rgba(var(--model-color-rgb), 0.8);
-    pointer-events: none; /* Prevent double-clicks during animation */
-    
-    ${QuestionIcon} {
-      transform: scale(0.92);
-      filter: brightness(2);
-      transition: all 0.15s ease-out;
-      
-      svg {
-        filter: drop-shadow(0 0 12px var(--accent-color));
-      }
-    }
-    
-    span {
-      transform: scale(0.96);
-      filter: brightness(1.5);
-      transition: all 0.15s ease-out;
-    }
-  }
-  
-  &:active {
-    animation: none; /* Remove the active animation since we're using the clicking class */
-    transform: scale(0.98);
-  }
-  
-  &.selected {
-    animation: ${props => css`${selectedEffect} 4s ease infinite`};
-  }
-  
-  &.model-highlight {
-    animation: ${buttonHighlightEffect} 0.4s ease-in-out;
-    will-change: filter, transform, box-shadow;
-    border-color: var(--accent-color);
-    box-shadow: 0 0 15px 2px rgba(var(--model-color-rgb), 0.3),
-      0 0 0 2px var(--accent-color);
-    
-    span {
-      text-shadow: 0 0 8px rgba(var(--model-color-rgb), 0.8);
-    }
-    
-    ${QuestionIcon} {
-      filter: drop-shadow(0 0 8px var(--accent-color));
-      transform: scale(1.1);
-      transition: all 0.4s ease;
-    }
-  }
-  
-  &.model-accent-active {
-    border-color: var(--accent-color);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15),
-      0 0 0 2px rgba(var(--model-color-rgb), 0.15);
-    
-    &:hover {
-      border-color: var(--accent-color);
-      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2),
-        0 0 0 2px rgba(var(--model-color-rgb), 0.25);
-    }
-  }
-  
-  transition: all 0.3s ease, 
-    background 0.3s ease, 
-    border-color 0.3s ease, 
-    box-shadow 0.3s ease, 
-    transform 0.3s ease;
-  
-  ${QuestionIcon} {
-    transition: all 0.3s ease;
-  }
-  
-  span {
-    transition: all 0.3s ease;
   }
 `;
 
@@ -686,18 +756,15 @@ export const AnimatedDiv = styled.div`
 // Collapse Button Components
 export const CollapseIconContainer = styled.div`
   position: absolute;
-  left: ${props => props.$isCollapsed ? '10px' : '35%'};
-  top: 50%;
-  transform: translateY(-50%);
+  bottom: 40px;
   z-index: 10;
   transition: left 0.3s ease;
 
   @media (max-width: 768px) {
     position: fixed;
-    left: 50%;
-    top: ${props => props.$isCollapsed ? 'auto' : 'calc(40vh - 28px)'};
-    bottom: ${props => props.$isCollapsed ? '20px' : 'auto'};
-    transform: translateX(-50%) ${props => props.$isCollapsed ? 'rotate(180deg)' : 'rotate(0deg)'};
+    left: 70px;
+    bottom: 20px;
+    transform: ${props => props.$isCollapsed ? 'rotate(180deg)' : 'rotate(0deg)'};
     z-index: 1001;
   }
 `;
@@ -706,7 +773,7 @@ export const CollapseIcon = styled.div`
   width: 48px;
   height: 48px;
   background: rgba(0, 0, 0, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -714,7 +781,7 @@ export const CollapseIcon = styled.div`
   cursor: pointer;
   color: white;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
 
   @media (max-width: 768px) {
     width: 56px;
@@ -725,15 +792,16 @@ export const CollapseIcon = styled.div`
   }
 
   svg {
-    width: 24px;
-    height: 24px;
+    width: 26px;
+    height: 26px;
     transform: rotate(${props => props.$isCollapsed ? '0deg' : '180deg'});
     transition: transform 0.3s ease;
   }
 
   &:hover {
     background: ${props => props.$isCollapsed ? 'rgba(0, 0, 0, 0.95)' : '#2A2A2A'};
-    border-color: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.4);
+    transform: scale(1.05);
   }
 `;
 
@@ -992,4 +1060,74 @@ export const SkeletonMetric = styled.div`
   );
   border-radius: 4px;
   animation: ${shimmer} 1.5s infinite;
+`;
+
+export const DiffusionTag = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: white;
+  background: transparent;
+  padding: 2px 6px;
+  border-radius: 6px;
+  margin-left: 8px;
+  border: 1px solid white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  transform: scale(0.6);
+  
+  &.active {
+    background-color: #D66000;
+    border-color: #D66000;
+    color: white;
+  }
+  
+  &.blinking {
+    animation: ${diffusionTagBlink} 0.3s forwards;
+  }
+`;
+
+export const TerminalContainer = styled.div`
+  width: 100%;
+  font-family: 'Courier New', monospace;
+  color: #FFFFFF;
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: opacity 0.3s ease;
+  padding-left: -10px;
+  position: relative;
+  height: 24px; /* Reduced height */
+  overflow: hidden;
+`;
+
+export const TerminalLine = styled.div`
+  font-size: 10px;
+  font-weight: 300;
+  white-space: nowrap;
+  overflow: hidden;
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: calc(100% - 24px);
+  animation: ${fadeInOut} 1.8s forwards;
+  opacity: 0;
+  transform: translateY(20px);
+  line-height: 1.2;
+
+  &:before {
+    content: '> ';
+    color: #D66000;
+    position: absolute;
+    left: -16px;
+  }
+`;
+
+export const ActiveTerminalLine = styled(TerminalLine)`
+  opacity: 1;
+  transform: translateY(0);
+  border-right: 2px solid #D66000;
+  animation: 
+    ${typewriterAnimation} ${props => props.$duration || '1.5'}s steps(40, end),
+    ${blinkCursor} 0.75s step-end infinite;
 `;

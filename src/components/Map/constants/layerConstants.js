@@ -30,5 +30,7 @@ export const DEFAULT_EXPANDED_CATEGORIES = {
   parks: true,
   employment: true,
   neighborhoods: true,
-  localZones: true
+  localZones: true,
+  bostonBuildings: true,
+  mapbox3DBuildings: true
 }; 

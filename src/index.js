@@ -1,12 +1,20 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
-import App from './App';
+import AppRouter from './AppRouter';
+import { initializeLogging } from './utils/loggingConfig';
+import suppressWarnings from './utils/suppressWarnings';
+
+// Initialize logging configuration
+initializeLogging();
+
+// Suppress React warnings and other noisy logs
+suppressWarnings();
 
 const container = document.getElementById('root');
 const root = createRoot(container);
 root.render(
   <React.StrictMode>
-    <App />
+    <AppRouter />
   </React.StrictMode>
 );

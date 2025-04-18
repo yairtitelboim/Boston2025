@@ -14,21 +14,8 @@ export const JAX_BOUNDS = {
   west: -81.8186
 };
 
-// Miami boundaries
-export const MIAMI_BOUNDS = {
-  north: 25.8557,
-  south: 25.7087,
-  east: -80.1307,
-  west: -80.2867
-};
 
-// Houston boundaries
-export const HOUSTON_BOUNDS = {
-  north: 29.8837,
-  south: 29.6837,
-  east: -95.3577,
-  west: -95.7577
-};
+
 
 // Power infrastructure locations
 export const POWER_SUBSTATIONS = [
@@ -188,19 +175,49 @@ export const BUILDING_COLORS = {
     YELLOW_CLOSE: '#f7db05'  // Power grid buildings (close to green)
 };
 
+// Boston Harbor boundaries
+export const BOSTON_HARBOR_BOUNDS = {
+  north: 42.4001,
+  south: 42.3201,
+  east: -70.9895,
+  west: -71.0895
+};
+
 // Map configuration constants
 export const MAP_CONFIG = {
     style: 'mapbox://styles/mapbox/dark-v11',
-    center: [-118.2437, 34.0522], // Los Angeles coordinates
-    zoom: 7.5,
-    minZoom: 6.5,
-    maxZoom: 17,
-    pitch: 0, // Start with flat view
-    dragRotate: true, // Allow rotation on desktop
+    center: [-71.0395, 42.3601], // Boston Harbor coordinates
+    zoom: 12, // Increased from 7 to 12 for a more zoomed in initial view
+    minZoom: 3, // Allow zooming out to see global view
+    maxZoom: 18, // Increased from 12 to allow closer zoom for more detail
+    pitch: 45, // Add some tilt to show harbor depth
+    bearing: -30, // Angle to better show the harbor layout
+    dragRotate: true,
     touchZoomRotate: true,
     doubleClickZoom: true,
-    touchPitch: false, // Disable pitch via touch gesture, we'll use our button instead
-    pitchWithRotate: false // Disable pitch with rotate gesture
+    touchPitch: true,
+    pitchWithRotate: true,
+    terrain: {
+        source: 'mapbox-dem',
+        exaggeration: 1.5
+    }
+};
+
+// Water styling constants for Boston Harbor
+export const WATER_STYLE = {
+    color: '#0A1824',
+    opacity: 0.9,
+    highlightColor: '#1A2F3F'
+};
+
+// Harbor-specific layer colors
+export const HARBOR_COLORS = {
+    WATER: '#0A1824',
+    LAND: '#1a1a1a',
+    BUILDINGS: '#404040',
+    ROADS: '#333333',
+    PIERS: '#4A4A4A',
+    BRIDGES: '#505050'
 };
 
 // Add mobile-specific constants

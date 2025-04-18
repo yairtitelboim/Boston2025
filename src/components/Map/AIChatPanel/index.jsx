@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Panel, ChatHeader } from './StyledComponents';
+import { Panel } from './StyledComponents';
 import { 
   handlePanelQuestion, 
   handleQuickAction, 
@@ -9,20 +9,16 @@ import {
   MOCK_RESPONSES 
 } from '../../../services/claude';
 import { handlePanelCollapse } from '../hooks/mapAnimations';
-import { Sparkles } from 'lucide-react';
 import { MODEL_COLORS } from './mockData';
 
 // Import components
-import ModelSelector from './components/ModelSelector';
 import MessageList from './components/MessageList';
-import InputArea from './components/InputArea';
 import InitialQuestions, { questionsContainerRef } from './components/InitialQuestions';
 import CollapseButton from './components/CollapseButton';
 
 const AIChatPanel = ({ messages, setMessages, handleQuestion, map, initialCollapsed = true }) => {
   // Initialize local messages state if not provided as a prop
   const [localMessages, setLocalMessages] = useState([]);
-  const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [selectedModel, setSelectedModel] = useState('claude3');
@@ -88,8 +84,14 @@ const AIChatPanel = ({ messages, setMessages, handleQuestion, map, initialCollap
 
   // Auto-scroll effect
   useEffect(() => {
-    // Check for focusOnLoadingIndicators flag
-    if (!window.focusOnLoadingIndicators) {
+    // Only auto-scroll in these cases:
+    // 1. When explicitly set by another component via focusOnLoadingIndicators
+    // 2. When the most recent message is from the user (they just sent something)
+    const shouldAutoScroll = 
+      window.focusOnLoadingIndicators || 
+      (effectiveMessages.length > 0 && effectiveMessages[effectiveMessages.length - 1].isUser);
+    
+    if (shouldAutoScroll) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [effectiveMessages]);
@@ -139,124 +141,6 @@ const AIChatPanel = ({ messages, setMessages, handleQuestion, map, initialCollap
       return () => timers.forEach(timer => clearTimeout(timer));
     }
   }, [map]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (inputValue.trim()) {
-      // When user submits a question, open the panel if it's closed
-      if (isCollapsed) {
-        setIsCollapsed(false);
-      }
-      await handlePanelQuestion(inputValue.trim(), map, effectiveSetMessages, setIsLoading);
-      setInputValue('');
-    }
-  };
-
-  const handleModelChange = (e) => {
-    console.log('🎨 ========== MODEL CHANGE START ==========');
-    console.log('🔄 Current model:', selectedModel);
-    console.log('🎯 Target model:', e.target.value);
-    
-    const newModel = e.target.value;
-    const modelColor = MODEL_COLORS[newModel];
-    
-    console.log('🎨 New model color:', modelColor);
-    console.log('🔍 Initial questions before DOM manipulation:', document.querySelectorAll('.initial-question').length);
-    
-    // Set loading UI for model selector only
-    const modelSelectContainer = document.querySelector('.model-select-container');
-    if (modelSelectContainer) {
-      console.log('✨ Adding loading class to model select container');
-      modelSelectContainer.classList.add('loading');
-    } else {
-      console.log('⚠️ WARNING: Could not find model select container');
-    }
-    
-    // Update all buttons simultaneously with the new color
-    document.querySelectorAll('.initial-question').forEach((button, index) => {
-      console.log(`🔘 Processing button ${index}:`, button.textContent.trim().substring(0, 20) + '...');
-      
-      // Update the CSS variable for RGB
-      const rgbValue = hexToRgb(modelColor);
-      console.log(`🌈 Setting RGB value for button ${index}:`, rgbValue);
-      button.style.setProperty('--model-color-rgb', rgbValue);
-      
-      // Update the background gradients directly 
-      button.style.background = `linear-gradient(135deg, ${modelColor}20, ${modelColor}20)`;
-      button.style.setProperty('--hover-gradient', `linear-gradient(135deg, ${modelColor}30, ${modelColor}40)`);
-      
-      // Update accent colors - this will persist as the stroke color
-      console.log(`💫 Setting accent color for button ${index}:`, modelColor);
-      button.style.setProperty('--accent-color', modelColor);
-      button.style.setProperty('--icon-glow', modelColor);
-      
-      // Directly style the accent line (::before pseudo-element)
-      button.style.borderColor = `${modelColor}30`;
-      
-      // Special handling for the "See more options" button
-      if (button.textContent.trim().includes("See more options")) {
-        console.log('🔧 Configuring See More button');
-        button.style.setProperty('--see-more-bg', `linear-gradient(135deg, ${modelColor}20, ${modelColor}30)`);
-        button.style.setProperty('--see-more-hover-bg', `linear-gradient(135deg, ${modelColor}30, ${modelColor}40)`);
-        button.style.borderColor = `${modelColor}40`;
-      }
-      
-      // Apply highlight effect
-      console.log(`✨ Adding model-highlight class to button ${index}`);
-      button.classList.add('model-highlight');
-    });
-    
-    // Update icon colors
-    document.querySelectorAll('.QuestionIcon').forEach((icon, index) => {
-      console.log(`🎨 Setting icon color ${index}:`, modelColor);
-      icon.style.color = modelColor;
-    });
-    
-    // Apply the new model selection WITHOUT updating React state yet
-    document.querySelectorAll('.model-select').forEach(select => {
-      console.log('🔄 Setting select value to', newModel);
-      select.value = newModel;
-    });
-    
-    // Use a single timeout for the entire animation - longer duration for visibility
-    console.log('⏱️ Setting timeout for state update (400ms)');
-    setTimeout(() => {
-      console.log('⚡ Timeout callback executing');
-      
-      // Update the React state
-      requestAnimationFrame(() => {
-        console.log('🔄 Updating selectedModel state to', newModel);
-        setSelectedModel(newModel);
-      });
-      
-      // Remove loading UI for model selector
-      if (modelSelectContainer) {
-        console.log('🔄 Removing loading class from model select container');
-        modelSelectContainer.classList.remove('loading');
-      }
-      
-      // After a longer delay, remove ONLY the highlight effect
-      // but preserve the color changes
-      setTimeout(() => {
-        document.querySelectorAll('.initial-question').forEach((button, index) => {
-          console.log(`🎭 Removing model-highlight class from button ${index}`);
-          button.classList.remove('model-highlight');
-          
-          // Add a persistent style class for the accent
-          console.log(`✨ Adding model-accent-active class to button ${index}`);
-          button.classList.add('model-accent-active');
-          
-          // Ensure the ::before element keeps the accent color
-          const computedStyle = window.getComputedStyle(button, '::before');
-          if (computedStyle) {
-            console.log(`💫 Forcing accent color recalculation for button ${index}`);
-            button.style.setProperty('--accent-color', modelColor);
-          }
-        });
-        console.log('🎉 ========== MODEL CHANGE COMPLETE ==========');
-      }, 400); // Increased from 100ms to 400ms to match the animation duration
-    }, 400); // Increased from 100ms to 400ms
-  };
 
   // Add a safe question handler for predefined questions - wrapped in useCallback to maintain reference
   const handlePredefinedQuestion = useCallback(async (questionText) => {
@@ -402,18 +286,6 @@ const AIChatPanel = ({ messages, setMessages, handleQuestion, map, initialCollap
         return;
       }
       
-      // For hardcoded questions like "Where are the major flood-prone areas?", 
-      // we can directly use the mock response if available
-      if (questionText === "Where are the major flood-prone areas?" && 
-          MOCK_RESPONSES && MOCK_RESPONSES[questionText]) {
-        effectiveSetMessages(prev => [
-          ...prev,
-          { isUser: true, content: questionText },
-          { isUser: false, content: JSON.parse(MOCK_RESPONSES[questionText].content[0].text) }
-        ]);
-        return;
-      }
-      
       await handlePanelQuestion(questionText, effectiveMap, effectiveSetMessages, setIsLoading);
     } catch (error) {
       console.error('Error in handlePredefinedQuestion:', error);
@@ -427,30 +299,12 @@ const AIChatPanel = ({ messages, setMessages, handleQuestion, map, initialCollap
     }
   }, [isCollapsed, map, selectedModel, effectiveMessages, effectiveSetMessages]);
 
-  // Add console log to show dependencies
-  console.log('Dependencies for handlePredefinedQuestion:', {
-    isCollapsed,
-    map: !!map,
-    setMessages: !!effectiveSetMessages,
-    setIsLoading: !!setIsLoading,
-    selectedModel
-  });
-
   return (
     <>
       <Panel 
         $isCollapsed={isCollapsed}
         style={{ willChange: 'transform' }}
       >
-        <ChatHeader>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', width: '100%' }}>
-            <ModelSelector 
-              selectedModel={selectedModel}
-              handleModelChange={handleModelChange}
-            />
-          </div>
-        </ChatHeader>
-
         {effectiveMessages.length === 0 ? (
           <InitialQuestions
             handlePredefinedQuestion={handlePredefinedQuestion}
@@ -465,12 +319,6 @@ const AIChatPanel = ({ messages, setMessages, handleQuestion, map, initialCollap
             selectedModel={selectedModel}
           />
         )}
-
-        <InputArea
-          inputValue={inputValue}
-          setInputValue={setInputValue}
-          handleSubmit={handleSubmit}
-        />
       </Panel>
 
       <CollapseButton 
