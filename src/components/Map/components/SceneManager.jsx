@@ -5,6 +5,20 @@ import { createLogger } from '../../../utils/logging';
 // Create a logger for the SceneManager component
 const logger = createLogger('SceneManager');
 
+// Set to true only when actively debugging scene management issues
+const DEBUG_SCENE_LOGS = false;
+
+// Helper function for scene-specific debugging logs
+const sceneLog = (message, data, style = 'background: #0f9d58; color: white;') => {
+  if (DEBUG_SCENE_LOGS) {
+    if (data !== undefined) {
+      console.log(`%c[SCENE] ${message}`, style, data);
+    } else {
+      console.log(`%c[SCENE] ${message}`, style);
+    }
+  }
+};
+
 // New left sidebar styles
 const SceneSidebar = styled.div`
   position: fixed;
@@ -205,6 +219,153 @@ const SceneManager = ({
   // Use a ref to track if we're programmatically changing the camera
   const isChangingCamera = useRef(false);
 
+  // Initialize the layer state manager on component mount
+  useEffect(() => {
+    if (!window.layerStateManager) {
+      // Create a more robust layer state manager
+      window.layerStateManager = {
+        layers: {},
+        registerLayer: (name, setter, initialState) => {
+          window.layerStateManager.layers[name] = {
+            setter,
+            state: initialState
+          };
+          logger.info(`Layer ${name} registered with state: ${initialState}`);
+        },
+        updateLayerState: (name, state) => {
+          if (window.layerStateManager.layers[name]) {
+            window.layerStateManager.layers[name].state = state;
+
+            // Also call the setter if available
+            if (typeof window.layerStateManager.layers[name].setter === 'function') {
+              try {
+                window.layerStateManager.layers[name].setter(state);
+                logger.info(`Layer ${name} state updated to: ${state} (setter called)`);
+              } catch (error) {
+                logger.error(`Error calling setter for layer ${name}:`, error);
+              }
+            } else {
+              logger.info(`Layer ${name} state updated to: ${state} (no setter available)`);
+            }
+          } else {
+            // If the layer is not registered, register it with just the state
+            window.layerStateManager.layers[name] = {
+              setter: null,
+              state: state
+            };
+            logger.warn(`Layer ${name} not registered, creating entry with state: ${state}`);
+          }
+        },
+        getLayerState: (name) => {
+          if (window.layerStateManager.layers[name]) {
+            return window.layerStateManager.layers[name].state;
+          }
+          logger.warn(`Layer ${name} not registered, cannot get state`);
+          return undefined;
+        },
+        getAllLayerStates: () => {
+          const states = {};
+          Object.keys(window.layerStateManager.layers).forEach(name => {
+            states[name] = window.layerStateManager.layers[name].state;
+          });
+          return states;
+        },
+        // Add a method to check if a layer is registered
+        isLayerRegistered: (name) => {
+          return !!window.layerStateManager.layers[name];
+        },
+        // Add a method to set all layer states at once
+        setAllLayerStates: (states) => {
+          if (!states) return;
+
+          logger.info('Setting all layer states:', states);
+
+          // Update each layer state
+          Object.entries(states).forEach(([name, state]) => {
+            // Skip undefined states
+            if (state === undefined) return;
+
+            // Update the state in the manager
+            if (window.layerStateManager.layers[name]) {
+              window.layerStateManager.layers[name].state = state;
+
+              // Call the setter if available
+              if (typeof window.layerStateManager.layers[name].setter === 'function') {
+                try {
+                  window.layerStateManager.layers[name].setter(state);
+                  logger.info(`Layer ${name} state set to: ${state} (setter called)`);
+                } catch (error) {
+                  logger.error(`Error calling setter for layer ${name}:`, error);
+                }
+              } else {
+                logger.info(`Layer ${name} state set to: ${state} (no setter available)`);
+              }
+            } else {
+              // If the layer is not registered, register it with just the state
+              window.layerStateManager.layers[name] = {
+                setter: null,
+                state: state
+              };
+              logger.warn(`Layer ${name} not registered, creating entry with state: ${state}`);
+            }
+          });
+        },
+        // Add a method to register all known layers with their global setters
+        registerAllKnownLayers: () => {
+          // Register original layers
+          if (window.setBostonBuildingsVisible && !window.layerStateManager.isLayerRegistered('showBostonBuildings')) {
+            window.layerStateManager.registerLayer('showBostonBuildings', window.setBostonBuildingsVisible, false);
+          }
+          if (window.set3DBuildingsVisible && !window.layerStateManager.isLayerRegistered('show3DBuildings')) {
+            window.layerStateManager.registerLayer('show3DBuildings', window.set3DBuildingsVisible, false);
+          }
+          if (window.setPOIMarkersVisible && !window.layerStateManager.isLayerRegistered('showPOIMarkers')) {
+            window.layerStateManager.registerLayer('showPOIMarkers', window.setPOIMarkersVisible, true);
+          }
+          if (window.setOSMPOIsVisible && !window.layerStateManager.isLayerRegistered('showOSMPOIs')) {
+            window.layerStateManager.registerLayer('showOSMPOIs', window.setOSMPOIsVisible, false);
+          }
+          if (window.setParksVisible && !window.layerStateManager.isLayerRegistered('showParks')) {
+            window.layerStateManager.registerLayer('showParks', window.setParksVisible, true);
+          }
+          if (window.setRoadsVisible && !window.layerStateManager.isLayerRegistered('showRoads')) {
+            window.layerStateManager.registerLayer('showRoads', window.setRoadsVisible, true);
+          }
+
+          // Register new layers
+          if (window.setPermitsVisible && !window.layerStateManager.isLayerRegistered('showPermits')) {
+            window.layerStateManager.registerLayer('showPermits', window.setPermitsVisible, false);
+          }
+          if (window.setNewPermitsVisible && !window.layerStateManager.isLayerRegistered('showNewPermits')) {
+            window.layerStateManager.registerLayer('showNewPermits', window.setNewPermitsVisible, false);
+          }
+          if (window.setPermitCensusVisible && !window.layerStateManager.isLayerRegistered('showPermitCensus')) {
+            window.layerStateManager.registerLayer('showPermitCensus', window.setPermitCensusVisible, false);
+          }
+          if (window.setCityBudgetVisible && !window.layerStateManager.isLayerRegistered('showCityBudget')) {
+            window.layerStateManager.registerLayer('showCityBudget', window.setCityBudgetVisible, false);
+          }
+
+          // Register POI Graph states
+          if (window.poiGraphManager && window.poiGraphManager.setGraphOpen && !window.layerStateManager.isLayerRegistered('poiGraphOpen')) {
+            window.layerStateManager.registerLayer('poiGraphOpen', window.poiGraphManager.setGraphOpen, false);
+          }
+
+          logger.info('All known layers registered with layer state manager');
+        }
+      };
+
+      logger.info('Layer state manager initialized');
+
+      // Register all known layers immediately
+      setTimeout(() => {
+        if (window.layerStateManager && typeof window.layerStateManager.registerAllKnownLayers === 'function') {
+          window.layerStateManager.registerAllKnownLayers();
+        }
+      }, 1000); // Delay to ensure all global setters are available
+    }
+  }, []);
+
   // Add event listener to track map movement
   useEffect(() => {
     if (!map) return;
@@ -346,12 +507,112 @@ const SceneManager = ({
           logger.info('Requesting current POI Graph state');
           window.mapEventBus.emit('poiGraph:requestState', {});
 
-          // Add POI Graph visibility to the state
+          // Add POI Graph visibility to the state - use multiple methods to ensure accuracy
+          let isPOIGraphVisible = false;
+
+          // Method 1: Check DOM element visibility
           const poiGraphElement = document.querySelector('.poi-graph-container');
           if (poiGraphElement) {
-            const isVisible = window.getComputedStyle(poiGraphElement).display !== 'none';
-            logger.info('POI Graph visibility detected:', isVisible);
-            allLayerStates.poiGraphOpen = isVisible;
+            // Check both display and opacity to determine if it's truly visible
+            const computedStyle = window.getComputedStyle(poiGraphElement);
+            const isVisibleInDOM = computedStyle.display !== 'none' &&
+                                  computedStyle.opacity !== '0' &&
+                                  !poiGraphElement.classList.contains('hidden') &&
+                                  computedStyle.visibility !== 'hidden' &&
+                                  computedStyle.height !== '0px';
+
+            logger.info('POI Graph DOM visibility check:', isVisibleInDOM);
+
+            // Additional check: verify the element has a non-zero size and is positioned on screen
+            const rect = poiGraphElement.getBoundingClientRect();
+            const hasVisibleSize = rect.width > 10 && rect.height > 10;
+            const isOnScreen = rect.bottom > 0 && rect.top < window.innerHeight;
+
+            logger.info('POI Graph size and position check:', {
+              hasVisibleSize,
+              isOnScreen,
+              width: rect.width,
+              height: rect.height
+            });
+
+            // Only consider it visible if it passes all checks
+            const isReallyVisible = isVisibleInDOM && hasVisibleSize && isOnScreen;
+            logger.info('POI Graph is really visible:', isReallyVisible);
+
+            if (isReallyVisible) {
+              isPOIGraphVisible = true;
+            }
+          } else {
+            logger.info('POI Graph element not found in DOM');
+          }
+
+          // Method 2: Check with the layer state manager
+          if (window.layerStateManager && window.layerStateManager.getLayerState) {
+            const storedState = window.layerStateManager.getLayerState('poiGraphOpen');
+            logger.info('POI Graph state from layer manager:', storedState);
+
+            // If the DOM check says it's not visible but the layer manager says it is,
+            // do an additional verification
+            if (!isPOIGraphVisible && storedState === true) {
+              // Additional verification: check if the POI Graph toggle button shows "Hide" instead of "Show"
+              const poiGraphToggle = document.querySelector('button[title="Show POI Stats"]');
+              if (poiGraphToggle && poiGraphToggle.textContent.includes('Hide')) {
+                logger.info('POI Graph toggle button indicates graph is open');
+                isPOIGraphVisible = true;
+              } else {
+                logger.info('POI Graph toggle button indicates graph is closed');
+              }
+            }
+          }
+
+          // Method 3: Check with the POI Graph manager if available
+          if (window.poiGraphManager && typeof window.poiGraphManager.isOpen === 'function') {
+            const isOpenFromManager = window.poiGraphManager.isOpen();
+            logger.info('POI Graph state from POI Graph manager:', isOpenFromManager);
+
+            // If the manager explicitly says it's open, trust it
+            if (isOpenFromManager) {
+              isPOIGraphVisible = true;
+            }
+          }
+
+          // Method 4: Check with the event bus
+          if (window.mapEventBus) {
+            // Use a synchronous approach with a timeout
+            const checkPromise = new Promise((resolve) => {
+              const timeout = setTimeout(() => {
+                logger.info('POI Graph event bus check timed out');
+                resolve(false);
+              }, 100);
+
+              window.mapEventBus.emit('poiGraph:isVisible', {
+                callback: (isVisible) => {
+                  clearTimeout(timeout);
+                  logger.info('POI Graph state from event bus:', isVisible);
+                  resolve(isVisible);
+                }
+              });
+            });
+
+            // We can't await the promise here, so we'll use the result in the next frame
+            checkPromise.then((isVisible) => {
+              if (isVisible && !isPOIGraphVisible) {
+                logger.info('POI Graph event bus indicates graph is open, updating state');
+                // This won't affect the current capture, but will update the state for future captures
+                if (window.layerStateManager) {
+                  window.layerStateManager.updateLayerState('poiGraphOpen', true);
+                }
+              }
+            });
+          }
+
+          // Set the final state based on all checks
+          logger.info('Final POI Graph visibility determination:', isPOIGraphVisible);
+          allLayerStates.poiGraphOpen = isPOIGraphVisible;
+
+          // Update the layer state manager with our final determination
+          if (window.layerStateManager && window.layerStateManager.updateLayerState) {
+            window.layerStateManager.updateLayerState('poiGraphOpen', isPOIGraphVisible);
           }
 
           // Try to get OSM data state from the POI Graph
@@ -450,13 +711,20 @@ const SceneManager = ({
 
       // Create inferred states with safe defaults
       const inferredStates = {
+        // Original layers
         showBostonBuildings: isBostonBuildingsVisible,
         show3DBuildings: is3DBuildingsVisible,
         showPOIMarkers: isPOIMarkersVisible,
         showOSMPOIs: isOSMPOIsVisible, // Use the detected state
         showParks: fallbackIsParksVisible || isParksVisible, // Use either detection method
         showRoads: true,     // Default to true as roads are usually visible
-        poiGraphOpen: false  // Default to false
+        poiGraphOpen: !!document.querySelector('.poi-graph-container'),  // Check if element exists
+
+        // New layers
+        showPermits: false,      // Default to false for new layers
+        showNewPermits: false,   // Default to false for new layers
+        showPermitCensus: false, // Default to false for new layers
+        showCityBudget: false    // Default to false for new layers
       };
 
       logger.info('Inferred layer states:', inferredStates);
@@ -496,9 +764,27 @@ const SceneManager = ({
         logger.info('- showParks:', currentStates.showParks);
         logger.info('- poiGraphOpen:', currentStates.poiGraphOpen);
 
-        // Restore all layer states
-        logger.info('Calling setAllLayerStates with scene state');
-        window.layerStateManager.setAllLayerStates(sceneState);
+        // Check if the setAllLayerStates method exists
+        if (typeof window.layerStateManager.setAllLayerStates === 'function') {
+          // Restore all layer states
+          logger.info('Calling setAllLayerStates with scene state');
+          window.layerStateManager.setAllLayerStates(sceneState);
+        } else {
+          // If setAllLayerStates doesn't exist, update states individually
+          logger.info('setAllLayerStates method not found, updating states individually');
+
+          // Update each state individually
+          Object.entries(sceneState).forEach(([name, state]) => {
+            // Skip undefined states
+            if (state === undefined) return;
+
+            // Update the state in the manager
+            if (typeof window.layerStateManager.updateLayerState === 'function') {
+              logger.info(`Updating layer state: ${name} = ${state}`);
+              window.layerStateManager.updateLayerState(name, state);
+            }
+          });
+        }
 
         // Directly update critical layer visibilities to ensure they're applied
         if (sceneState.showBostonBuildings !== undefined) {
@@ -747,16 +1033,128 @@ const SceneManager = ({
           }, 500);
         }
 
-        // Handle POI Graph visibility separately
+        // Handle POI Graph visibility and state separately
         if (sceneState.poiGraphOpen !== undefined) {
           logger.info('Restoring POI Graph visibility:', sceneState.poiGraphOpen);
+          console.log('%c[SCENE RESTORE] Setting POI Graph visibility:', 'background: #4caf50; color: white; font-size: 16px; padding: 5px;', sceneState.poiGraphOpen);
 
-          // Use the event bus to toggle POI Graph visibility
+          // Multiple methods to ensure POI Graph state is properly restored
+
+          // Method 1: Use the event bus to toggle POI Graph visibility
           if (window.mapEventBus) {
+            console.log('%c[SCENE RESTORE] Emitting poiGraph:visibility event', 'background: #4caf50; color: white;');
             window.mapEventBus.emit('poiGraph:visibility', {
               isVisible: sceneState.poiGraphOpen,
               height: '40%'
             });
+
+            // Also emit a more specific event with all POI Graph states
+            console.log('%c[SCENE RESTORE] Emitting poiGraph:setState event', 'background: #4caf50; color: white;');
+            window.mapEventBus.emit('poiGraph:setState', {
+              isVisible: sceneState.poiGraphOpen,
+              showOSM: sceneState.poiGraphShowOSM,
+              showCurve: sceneState.poiGraphShowCurve,
+              showRadius: sceneState.poiGraphShowRadius,
+              visibleCategories: sceneState.poiVisibleCategories
+            });
+          }
+
+          // Method 2: Update the layer state manager directly
+          if (window.layerStateManager) {
+            console.log('%c[SCENE RESTORE] Updating layerStateManager with POI Graph states', 'background: #4caf50; color: white;');
+            window.layerStateManager.updateLayerState('poiGraphOpen', sceneState.poiGraphOpen);
+
+            // Also update other POI Graph states
+            if (sceneState.poiGraphShowOSM !== undefined) {
+              window.layerStateManager.updateLayerState('poiGraphShowOSM', sceneState.poiGraphShowOSM);
+            }
+            if (sceneState.poiGraphShowCurve !== undefined) {
+              window.layerStateManager.updateLayerState('poiGraphShowCurve', sceneState.poiGraphShowCurve);
+            }
+            if (sceneState.poiGraphShowRadius !== undefined) {
+              window.layerStateManager.updateLayerState('poiGraphShowRadius', sceneState.poiGraphShowRadius);
+            }
+            if (sceneState.poiVisibleCategories) {
+              window.layerStateManager.updateLayerState('poiVisibleCategories', sceneState.poiVisibleCategories);
+            }
+          }
+
+          // Method 3: Use the POI Graph manager if available
+          if (window.poiGraphManager) {
+            console.log('%c[SCENE RESTORE] Using poiGraphManager to restore POI Graph state', 'background: #4caf50; color: white;');
+
+            // Open or close the graph
+            if (sceneState.poiGraphOpen) {
+              if (typeof window.poiGraphManager.openGraph === 'function') {
+                window.poiGraphManager.openGraph();
+              }
+            } else {
+              if (typeof window.poiGraphManager.closeGraph === 'function') {
+                window.poiGraphManager.closeGraph();
+              }
+            }
+
+            // Set other POI Graph states
+            if (sceneState.poiGraphShowOSM !== undefined && typeof window.poiGraphManager.setShowOSM === 'function') {
+              window.poiGraphManager.setShowOSM(sceneState.poiGraphShowOSM);
+            }
+            if (sceneState.poiGraphShowCurve !== undefined && typeof window.poiGraphManager.setShowCurve === 'function') {
+              window.poiGraphManager.setShowCurve(sceneState.poiGraphShowCurve);
+            }
+            if (sceneState.poiGraphShowRadius !== undefined && typeof window.poiGraphManager.setShowRadius === 'function') {
+              window.poiGraphManager.setShowRadius(sceneState.poiGraphShowRadius);
+            }
+            if (sceneState.poiVisibleCategories && typeof window.poiGraphManager.setVisibleCategories === 'function') {
+              window.poiGraphManager.setVisibleCategories(sceneState.poiVisibleCategories);
+            }
+          }
+
+          // Method 4: If POI Graph should be open, try to find and click the toggle button
+          if (sceneState.poiGraphOpen) {
+            setTimeout(() => {
+              try {
+                const poiGraphToggleButton = document.querySelector('button[title="Show POI Stats"]');
+                const poiGraphContainer = document.querySelector('.poi-graph-container');
+
+                // Only click the button if the graph is not already open
+                if (poiGraphToggleButton && !poiGraphContainer) {
+                  console.log('%c[SCENE RESTORE] Clicking POI Graph toggle button', 'background: #4caf50; color: white;');
+                  poiGraphToggleButton.click();
+
+                  // After opening, set the other states
+                  setTimeout(() => {
+                    // Try to set OSM toggle
+                    if (sceneState.poiGraphShowOSM !== undefined) {
+                      const osmToggle = document.querySelector('.poi-graph-osm-toggle input[type="checkbox"]');
+                      if (osmToggle && osmToggle.checked !== sceneState.poiGraphShowOSM) {
+                        console.log('%c[SCENE RESTORE] Clicking OSM toggle', 'background: #4caf50; color: white;');
+                        osmToggle.click();
+                      }
+                    }
+
+                    // Try to set Curve toggle
+                    if (sceneState.poiGraphShowCurve !== undefined) {
+                      const curveToggle = document.querySelector('.poi-graph-curve-toggle input[type="checkbox"]');
+                      if (curveToggle && curveToggle.checked !== sceneState.poiGraphShowCurve) {
+                        console.log('%c[SCENE RESTORE] Clicking Curve toggle', 'background: #4caf50; color: white;');
+                        curveToggle.click();
+                      }
+                    }
+
+                    // Try to set Radius toggle
+                    if (sceneState.poiGraphShowRadius !== undefined) {
+                      const radiusToggle = document.querySelector('.poi-graph-radius-toggle input[type="checkbox"]');
+                      if (radiusToggle && radiusToggle.checked !== sceneState.poiGraphShowRadius) {
+                        console.log('%c[SCENE RESTORE] Clicking Radius toggle', 'background: #4caf50; color: white;');
+                        radiusToggle.click();
+                      }
+                    }
+                  }, 500);
+                }
+              } catch (error) {
+                console.error('Error opening POI Graph:', error);
+              }
+            }, 300);
           }
         }
 
@@ -772,6 +1170,367 @@ const SceneManager = ({
           }
         }
 
+        // Handle new layers: City Budget
+        if (sceneState.showCityBudget !== undefined) {
+          logger.info('Directly setting City Budget visibility:', sceneState.showCityBudget);
+          console.log('%c[SCENE RESTORE] Setting City Budget visibility:', 'background: blue; color: white; font-size: 16px; padding: 5px;', sceneState.showCityBudget);
+
+          // Update the layer state manager directly
+          if (window.layerStateManager) {
+            logger.info('Updating layerStateManager with City Budget visibility:', sceneState.showCityBudget);
+            window.layerStateManager.updateLayerState('showCityBudget', sceneState.showCityBudget);
+          }
+
+          // Try multiple methods to ensure the layer is toggled correctly
+          let toggleSuccess = false;
+
+          // Method 1: Use the global setter function if available
+          if (window.setCityBudgetVisible) {
+            logger.info('Using window.setCityBudgetVisible to update City Budget');
+            try {
+              window.setCityBudgetVisible(sceneState.showCityBudget);
+              toggleSuccess = true;
+              logger.info('Successfully used setCityBudgetVisible');
+            } catch (error) {
+              logger.error('Error using setCityBudgetVisible:', error);
+            }
+          }
+
+          // Method 2: Use the toggle function if available
+          if (!toggleSuccess && window.toggleCityBudgetLayer) {
+            logger.info('Using window.toggleCityBudgetLayer as fallback');
+            try {
+              window.toggleCityBudgetLayer(sceneState.showCityBudget);
+              toggleSuccess = true;
+              logger.info('Successfully used toggleCityBudgetLayer');
+            } catch (error) {
+              logger.error('Error using toggleCityBudgetLayer:', error);
+            }
+          }
+
+          // Method 3: Use the direct toggle function if available
+          if (!toggleSuccess && window.toggleCityBudgetLayerDirect) {
+            logger.info('Using window.toggleCityBudgetLayerDirect as last resort');
+            try {
+              window.toggleCityBudgetLayerDirect(sceneState.showCityBudget);
+              toggleSuccess = true;
+              logger.info('Successfully used toggleCityBudgetLayerDirect');
+            } catch (error) {
+              logger.error('Error using toggleCityBudgetLayerDirect:', error);
+            }
+          }
+
+          // Method 4: Update the map layer directly if it exists
+          if (map.getLayer('city-budget-layer')) {
+            logger.info(`Setting city-budget-layer visibility to ${sceneState.showCityBudget ? 'visible' : 'none'}`);
+            try {
+              map.setLayoutProperty('city-budget-layer', 'visibility', sceneState.showCityBudget ? 'visible' : 'none');
+              toggleSuccess = true;
+              logger.info('Successfully updated city-budget-layer directly');
+            } catch (error) {
+              logger.error('Error updating city-budget-layer directly:', error);
+            }
+          }
+
+          // Try additional layer IDs that might be used
+          const possibleLayerIds = [
+            'city-budget-layer',
+            'direct-city-budget-fill',
+            'direct-city-budget-line',
+            'direct-city-budget-extrusion',
+            'city-budget-fill',
+            'city-budget-line',
+            'city-budget-extrusion'
+          ];
+
+          possibleLayerIds.forEach(layerId => {
+            if (!toggleSuccess && map.getLayer(layerId)) {
+              logger.info(`Found alternative layer ID: ${layerId}, setting visibility to ${sceneState.showCityBudget ? 'visible' : 'none'}`);
+              try {
+                map.setLayoutProperty(layerId, 'visibility', sceneState.showCityBudget ? 'visible' : 'none');
+                toggleSuccess = true;
+              } catch (error) {
+                logger.error(`Error updating ${layerId} directly:`, error);
+              }
+            }
+          });
+
+          // Schedule a verification check
+          setTimeout(() => {
+            if (window.layerStateManager) {
+              const currentState = window.layerStateManager.getAllLayerStates().showCityBudget;
+              logger.info(`City Budget visibility verification - Expected: ${sceneState.showCityBudget}, Actual: ${currentState}`);
+
+              if (currentState !== sceneState.showCityBudget && window.setCityBudgetVisible) {
+                logger.warn('City Budget visibility mismatch, attempting to fix...');
+                window.setCityBudgetVisible(sceneState.showCityBudget);
+              }
+            }
+          }, 500);
+
+        }
+
+        // Handle new layers: Permit Census
+        if (sceneState.showPermitCensus !== undefined) {
+          logger.info('Directly setting Permit Census visibility:', sceneState.showPermitCensus);
+          console.log('%c[SCENE RESTORE] Setting Permit Census visibility:', 'background: blue; color: white; font-size: 16px; padding: 5px;', sceneState.showPermitCensus);
+
+          // Update the layer state manager directly
+          if (window.layerStateManager) {
+            logger.info('Updating layerStateManager with Permit Census visibility:', sceneState.showPermitCensus);
+            window.layerStateManager.updateLayerState('showPermitCensus', sceneState.showPermitCensus);
+          }
+
+          // Try multiple methods to ensure the layer is toggled correctly
+          let toggleSuccess = false;
+
+          // Method 1: Use the global setter function if available
+          if (window.setPermitCensusVisible) {
+            logger.info('Using window.setPermitCensusVisible to update Permit Census');
+            try {
+              window.setPermitCensusVisible(sceneState.showPermitCensus);
+              toggleSuccess = true;
+              logger.info('Successfully used setPermitCensusVisible');
+            } catch (error) {
+              logger.error('Error using setPermitCensusVisible:', error);
+            }
+          }
+
+          // Method 2: Use the toggle function if available
+          if (!toggleSuccess && window.togglePermitCensusLayer) {
+            logger.info('Using window.togglePermitCensusLayer as fallback');
+            try {
+              window.togglePermitCensusLayer(sceneState.showPermitCensus);
+              toggleSuccess = true;
+              logger.info('Successfully used togglePermitCensusLayer');
+            } catch (error) {
+              logger.error('Error using togglePermitCensusLayer:', error);
+            }
+          }
+
+          // Method 3: Update the map layer directly if it exists
+          if (map.getLayer('permit-census-layer')) {
+            logger.info(`Setting permit-census-layer visibility to ${sceneState.showPermitCensus ? 'visible' : 'none'}`);
+            try {
+              map.setLayoutProperty('permit-census-layer', 'visibility', sceneState.showPermitCensus ? 'visible' : 'none');
+              toggleSuccess = true;
+              logger.info('Successfully updated permit-census-layer directly');
+            } catch (error) {
+              logger.error('Error updating permit-census-layer directly:', error);
+            }
+          }
+
+          // Try additional layer IDs that might be used
+          const possibleLayerIds = [
+            'permit-census-layer',
+            'permit-census-fill',
+            'permit-census-line',
+            'permit-census-extrusion',
+            'permit-census',
+            'boston-permit-census'
+          ];
+
+          possibleLayerIds.forEach(layerId => {
+            if (!toggleSuccess && map.getLayer(layerId)) {
+              logger.info(`Found alternative layer ID: ${layerId}, setting visibility to ${sceneState.showPermitCensus ? 'visible' : 'none'}`);
+              try {
+                map.setLayoutProperty(layerId, 'visibility', sceneState.showPermitCensus ? 'visible' : 'none');
+                toggleSuccess = true;
+              } catch (error) {
+                logger.error(`Error updating ${layerId} directly:`, error);
+              }
+            }
+          });
+
+          // Schedule a verification check
+          setTimeout(() => {
+            if (window.layerStateManager) {
+              const currentState = window.layerStateManager.getAllLayerStates().showPermitCensus;
+              logger.info(`Permit Census visibility verification - Expected: ${sceneState.showPermitCensus}, Actual: ${currentState}`);
+
+              if (currentState !== sceneState.showPermitCensus && window.setPermitCensusVisible) {
+                logger.warn('Permit Census visibility mismatch, attempting to fix...');
+                window.setPermitCensusVisible(sceneState.showPermitCensus);
+              }
+            }
+          }, 500);
+
+        }
+
+        // Handle new layers: Permits
+        if (sceneState.showPermits !== undefined) {
+          logger.info('Directly setting Permits visibility:', sceneState.showPermits);
+          console.log('%c[SCENE RESTORE] Setting Permits visibility:', 'background: blue; color: white; font-size: 16px; padding: 5px;', sceneState.showPermits);
+
+          // Update the layer state manager directly
+          if (window.layerStateManager) {
+            logger.info('Updating layerStateManager with Permits visibility:', sceneState.showPermits);
+            window.layerStateManager.updateLayerState('showPermits', sceneState.showPermits);
+          }
+
+          // Try multiple methods to ensure the layer is toggled correctly
+          let toggleSuccess = false;
+
+          // Method 1: Use the global setter function if available
+          if (window.setPermitsVisible) {
+            logger.info('Using window.setPermitsVisible to update Permits');
+            try {
+              window.setPermitsVisible(sceneState.showPermits);
+              toggleSuccess = true;
+              logger.info('Successfully used setPermitsVisible');
+            } catch (error) {
+              logger.error('Error using setPermitsVisible:', error);
+            }
+          }
+
+          // Method 2: Use the toggle function if available
+          if (!toggleSuccess && window.togglePermitsLayer) {
+            logger.info('Using window.togglePermitsLayer as fallback');
+            try {
+              window.togglePermitsLayer(sceneState.showPermits);
+              toggleSuccess = true;
+              logger.info('Successfully used togglePermitsLayer');
+            } catch (error) {
+              logger.error('Error using togglePermitsLayer:', error);
+            }
+          }
+
+          // Method 3: Update the map layer directly if it exists
+          if (map.getLayer('permits-layer')) {
+            logger.info(`Setting permits-layer visibility to ${sceneState.showPermits ? 'visible' : 'none'}`);
+            try {
+              map.setLayoutProperty('permits-layer', 'visibility', sceneState.showPermits ? 'visible' : 'none');
+              toggleSuccess = true;
+              logger.info('Successfully updated permits-layer directly');
+            } catch (error) {
+              logger.error('Error updating permits-layer directly:', error);
+            }
+          }
+
+          // Try additional layer IDs that might be used
+          const possibleLayerIds = [
+            'permits-layer',
+            'permits-fill',
+            'permits-line',
+            'permits-marker',
+            'permits',
+            'boston-permits'
+          ];
+
+          possibleLayerIds.forEach(layerId => {
+            if (!toggleSuccess && map.getLayer(layerId)) {
+              logger.info(`Found alternative layer ID: ${layerId}, setting visibility to ${sceneState.showPermits ? 'visible' : 'none'}`);
+              try {
+                map.setLayoutProperty(layerId, 'visibility', sceneState.showPermits ? 'visible' : 'none');
+                toggleSuccess = true;
+              } catch (error) {
+                logger.error(`Error updating ${layerId} directly:`, error);
+              }
+            }
+          });
+
+          // Schedule a verification check
+          setTimeout(() => {
+            if (window.layerStateManager) {
+              const currentState = window.layerStateManager.getAllLayerStates().showPermits;
+              logger.info(`Permits visibility verification - Expected: ${sceneState.showPermits}, Actual: ${currentState}`);
+
+              if (currentState !== sceneState.showPermits && window.setPermitsVisible) {
+                logger.warn('Permits visibility mismatch, attempting to fix...');
+                window.setPermitsVisible(sceneState.showPermits);
+              }
+            }
+          }, 500);
+
+        }
+
+        // Handle new layers: New Permits
+        if (sceneState.showNewPermits !== undefined) {
+          logger.info('Directly setting New Permits visibility:', sceneState.showNewPermits);
+          console.log('%c[SCENE RESTORE] Setting New Permits visibility:', 'background: blue; color: white; font-size: 16px; padding: 5px;', sceneState.showNewPermits);
+
+          // Update the layer state manager directly
+          if (window.layerStateManager) {
+            logger.info('Updating layerStateManager with New Permits visibility:', sceneState.showNewPermits);
+            window.layerStateManager.updateLayerState('showNewPermits', sceneState.showNewPermits);
+          }
+
+          // Try multiple methods to ensure the layer is toggled correctly
+          let toggleSuccess = false;
+
+          // Method 1: Use the global setter function if available
+          if (window.setNewPermitsVisible) {
+            logger.info('Using window.setNewPermitsVisible to update New Permits');
+            try {
+              window.setNewPermitsVisible(sceneState.showNewPermits);
+              toggleSuccess = true;
+              logger.info('Successfully used setNewPermitsVisible');
+            } catch (error) {
+              logger.error('Error using setNewPermitsVisible:', error);
+            }
+          }
+
+          // Method 2: Use the toggle function if available
+          if (!toggleSuccess && window.toggleNewPermitsLayer) {
+            logger.info('Using window.toggleNewPermitsLayer as fallback');
+            try {
+              window.toggleNewPermitsLayer(sceneState.showNewPermits);
+              toggleSuccess = true;
+              logger.info('Successfully used toggleNewPermitsLayer');
+            } catch (error) {
+              logger.error('Error using toggleNewPermitsLayer:', error);
+            }
+          }
+
+          // Method 3: Update the map layer directly if it exists
+          if (map.getLayer('new-permits-layer')) {
+            logger.info(`Setting new-permits-layer visibility to ${sceneState.showNewPermits ? 'visible' : 'none'}`);
+            try {
+              map.setLayoutProperty('new-permits-layer', 'visibility', sceneState.showNewPermits ? 'visible' : 'none');
+              toggleSuccess = true;
+              logger.info('Successfully updated new-permits-layer directly');
+            } catch (error) {
+              logger.error('Error updating new-permits-layer directly:', error);
+            }
+          }
+
+          // Try additional layer IDs that might be used
+          const possibleLayerIds = [
+            'new-permits-layer',
+            'new-permits-fill',
+            'new-permits-line',
+            'new-permits-marker',
+            'new-permits',
+            'boston-new-permits'
+          ];
+
+          possibleLayerIds.forEach(layerId => {
+            if (!toggleSuccess && map.getLayer(layerId)) {
+              logger.info(`Found alternative layer ID: ${layerId}, setting visibility to ${sceneState.showNewPermits ? 'visible' : 'none'}`);
+              try {
+                map.setLayoutProperty(layerId, 'visibility', sceneState.showNewPermits ? 'visible' : 'none');
+                toggleSuccess = true;
+              } catch (error) {
+                logger.error(`Error updating ${layerId} directly:`, error);
+              }
+            }
+          });
+
+          // Schedule a verification check
+          setTimeout(() => {
+            if (window.layerStateManager) {
+              const currentState = window.layerStateManager.getAllLayerStates().showNewPermits;
+              logger.info(`New Permits visibility verification - Expected: ${sceneState.showNewPermits}, Actual: ${currentState}`);
+
+              if (currentState !== sceneState.showNewPermits && window.setNewPermitsVisible) {
+                logger.warn('New Permits visibility mismatch, attempting to fix...');
+                window.setNewPermitsVisible(sceneState.showNewPermits);
+              }
+            }
+          }, 500);
+
+        }
+
         // Log key states after restoration
         logger.info('Key states after restoration:');
         const newStates = window.layerStateManager.getAllLayerStates();
@@ -780,6 +1539,106 @@ const SceneManager = ({
         logger.info('- showPOIMarkers:', newStates.showPOIMarkers);
         logger.info('- show3DBuildings:', newStates.show3DBuildings);
         logger.info('- showParks:', newStates.showParks);
+        logger.info('- showCityBudget:', newStates.showCityBudget);
+        logger.info('- showPermitCensus:', newStates.showPermitCensus);
+        logger.info('- showPermits:', newStates.showPermits);
+        logger.info('- showNewPermits:', newStates.showNewPermits);
+
+        // Schedule a final verification check
+        setTimeout(() => {
+          logger.info('Final verification of critical layer states:');
+          logger.info('=== FINAL VERIFICATION OF MAP LAYERS ===');
+
+          // Get all available layers
+          const availableLayers = map.getStyle().layers.map(layer => layer.id);
+          logger.info(`Available layers for final verification: ${availableLayers.length}`);
+
+          // Check Boston Buildings
+          const bostonBuildingsVisible = ['boston-buildings-fill', 'boston-buildings-outline', 'boston-buildings-labels']
+            .some(layerId => map.getLayer(layerId) && map.getLayoutProperty(layerId, 'visibility') !== 'none');
+          const bostonBuildingsState = window.layerStateManager.getLayerState('showBostonBuildings');
+          logger.info(`Final Boston Buildings state: ${bostonBuildingsState}`);
+          logger.info(`Final Boston Buildings layer visible: ${bostonBuildingsVisible}`);
+
+          // Check 3D Buildings
+          const buildings3DVisible = ['3d-buildings', 'buildings-3d-layer', 'osm-buildings-3d', 'harbor-buildings-3d']
+            .some(layerId => map.getLayer(layerId) && map.getLayoutProperty(layerId, 'visibility') !== 'none');
+          const buildings3DState = window.layerStateManager.getLayerState('show3DBuildings');
+          logger.info(`Final 3D Buildings state: ${buildings3DState}`);
+          logger.info(`Final 3D Buildings layer visible: ${buildings3DVisible}`);
+
+          // Check POI Markers
+          const poiMarkersVisible = map.getLayer('poi-label') && map.getLayoutProperty('poi-label', 'visibility') !== 'none';
+          const poiMarkersState = window.layerStateManager.getLayerState('showPOIMarkers');
+          logger.info(`Final POI Markers state: ${poiMarkersState}`);
+          logger.info(`Final POI Markers layer visible: ${poiMarkersVisible}`);
+
+          // Check Parks
+          logger.info('[FINAL VERIFICATION] Checking Parks state');
+          if (sceneState.showParks !== undefined) {
+            const parksVisible = ['national-park', 'landuse']
+              .some(layerId => map.getLayer(layerId) && map.getLayoutProperty(layerId, 'visibility') !== 'none');
+            if (parksVisible !== sceneState.showParks && window.setParksVisible) {
+              logger.warn(`Parks visibility mismatch, fixing: expected=${sceneState.showParks}, actual=${parksVisible}`);
+              window.setParksVisible(sceneState.showParks);
+            }
+          }
+
+          // Check OSM POIs
+          logger.info('[FINAL VERIFICATION] Checking OSM POIs state');
+          if (sceneState.showOSMPOIs !== undefined && window.setOSMPOIsVisible) {
+            const osmState = window.layerStateManager.getLayerState('showOSMPOIs');
+            if (osmState !== sceneState.showOSMPOIs) {
+              logger.warn(`OSM POIs state mismatch, fixing: expected=${sceneState.showOSMPOIs}, actual=${osmState}`);
+              window.setOSMPOIsVisible(sceneState.showOSMPOIs);
+            }
+          }
+
+          // Check Boston Buildings
+          logger.info('[FINAL] Checking Boston Buildings state');
+          if (sceneState.showBostonBuildings !== undefined && window.setBostonBuildingsVisible) {
+            if (bostonBuildingsVisible !== sceneState.showBostonBuildings) {
+              logger.warn(`Boston Buildings visibility mismatch, fixing: expected=${sceneState.showBostonBuildings}, actual=${bostonBuildingsVisible}`);
+              window.setBostonBuildingsVisible(sceneState.showBostonBuildings);
+            }
+          }
+
+          // Check City Budget
+          if (sceneState.showCityBudget !== undefined && window.setCityBudgetVisible) {
+            const cityBudgetState = window.layerStateManager.getLayerState('showCityBudget');
+            if (cityBudgetState !== sceneState.showCityBudget) {
+              logger.warn(`City Budget state mismatch, fixing: expected=${sceneState.showCityBudget}, actual=${cityBudgetState}`);
+              window.setCityBudgetVisible(sceneState.showCityBudget);
+            }
+          }
+
+          // Check Permit Census
+          if (sceneState.showPermitCensus !== undefined && window.setPermitCensusVisible) {
+            const permitCensusState = window.layerStateManager.getLayerState('showPermitCensus');
+            if (permitCensusState !== sceneState.showPermitCensus) {
+              logger.warn(`Permit Census state mismatch, fixing: expected=${sceneState.showPermitCensus}, actual=${permitCensusState}`);
+              window.setPermitCensusVisible(sceneState.showPermitCensus);
+            }
+          }
+
+          // Check Permits
+          if (sceneState.showPermits !== undefined && window.setPermitsVisible) {
+            const permitsState = window.layerStateManager.getLayerState('showPermits');
+            if (permitsState !== sceneState.showPermits) {
+              logger.warn(`Permits state mismatch, fixing: expected=${sceneState.showPermits}, actual=${permitsState}`);
+              window.setPermitsVisible(sceneState.showPermits);
+            }
+          }
+
+          // Check New Permits
+          if (sceneState.showNewPermits !== undefined && window.setNewPermitsVisible) {
+            const newPermitsState = window.layerStateManager.getLayerState('showNewPermits');
+            if (newPermitsState !== sceneState.showNewPermits) {
+              logger.warn(`New Permits state mismatch, fixing: expected=${sceneState.showNewPermits}, actual=${newPermitsState}`);
+              window.setNewPermitsVisible(sceneState.showNewPermits);
+            }
+          }
+        }, 1000);
 
         // Notify components of state restoration
         if (window.mapEventBus) {
@@ -792,6 +1651,253 @@ const SceneManager = ({
 
       // Fallback to the old method
       logger.warn('layerStateManager not available, using fallback method');
+
+      // Create a temporary layer state manager if it doesn't exist
+      if (!window.layerStateManager) {
+        logger.info('Creating temporary layer state manager for scene restoration');
+        window.layerStateManager = {
+          layers: {},
+          registerLayer: (name, setter, initialState) => {
+            window.layerStateManager.layers[name] = {
+              setter,
+              state: initialState
+            };
+            logger.info(`Layer ${name} registered with state: ${initialState}`);
+          },
+          updateLayerState: (name, state) => {
+            if (window.layerStateManager.layers[name]) {
+              window.layerStateManager.layers[name].state = state;
+              logger.info(`Layer ${name} state updated to: ${state}`);
+            } else {
+              window.layerStateManager.layers[name] = {
+                setter: null,
+                state: state
+              };
+              logger.warn(`Layer ${name} not registered, creating entry with state: ${state}`);
+            }
+          },
+          getLayerState: (name) => {
+            if (window.layerStateManager.layers[name]) {
+              return window.layerStateManager.layers[name].state;
+            }
+            logger.warn(`Layer ${name} not registered, cannot get state`);
+            return undefined;
+          },
+          getAllLayerStates: () => {
+            const states = {};
+            Object.keys(window.layerStateManager.layers).forEach(name => {
+              states[name] = window.layerStateManager.layers[name].state;
+            });
+            return states;
+          },
+          setAllLayerStates: (states) => {
+            if (!states) return;
+
+            logger.info('Setting all layer states:', states);
+
+            // Update each layer state
+            Object.entries(states).forEach(([name, state]) => {
+              // Skip undefined states
+              if (state === undefined) return;
+
+              // Update the state in the manager
+              if (window.layerStateManager.layers[name]) {
+                window.layerStateManager.layers[name].state = state;
+              } else {
+                window.layerStateManager.layers[name] = {
+                  setter: null,
+                  state: state
+                };
+              }
+            });
+          }
+        };
+
+        // Register global setters
+        if (window.setBostonBuildingsVisible) {
+          window.layerStateManager.registerLayer('showBostonBuildings', window.setBostonBuildingsVisible, false);
+        }
+        if (window.set3DBuildingsVisible) {
+          window.layerStateManager.registerLayer('show3DBuildings', window.set3DBuildingsVisible, false);
+        }
+        if (window.setPOIMarkersVisible) {
+          window.layerStateManager.registerLayer('showPOIMarkers', window.setPOIMarkersVisible, true);
+        }
+        if (window.setOSMPOIsVisible) {
+          window.layerStateManager.registerLayer('showOSMPOIs', window.setOSMPOIsVisible, false);
+        }
+        if (window.setParksVisible) {
+          window.layerStateManager.registerLayer('showParks', window.setParksVisible, true);
+        }
+        if (window.setRoadsVisible) {
+          window.layerStateManager.registerLayer('showRoads', window.setRoadsVisible, true);
+        }
+
+        // Register new layers
+        if (window.setPermitsVisible) {
+          window.layerStateManager.registerLayer('showPermits', window.setPermitsVisible, false);
+        }
+        if (window.setNewPermitsVisible) {
+          window.layerStateManager.registerLayer('showNewPermits', window.setNewPermitsVisible, false);
+        }
+        if (window.setPermitCensusVisible) {
+          window.layerStateManager.registerLayer('showPermitCensus', window.setPermitCensusVisible, false);
+        }
+        if (window.setCityBudgetVisible) {
+          window.layerStateManager.registerLayer('showCityBudget', window.setCityBudgetVisible, false);
+        }
+      }
+
+      // Try to use the layer state manager we just created
+      if (window.layerStateManager) {
+        logger.info('Using newly created layerStateManager to restore scene state');
+
+        // Update the layer state manager with the scene state
+        if (typeof window.layerStateManager.setAllLayerStates === 'function') {
+          window.layerStateManager.setAllLayerStates(sceneState);
+        } else {
+          // Update each state individually
+          Object.entries(sceneState).forEach(([name, state]) => {
+            // Skip undefined states
+            if (state === undefined) return;
+
+            // Update the state in the manager
+            if (typeof window.layerStateManager.updateLayerState === 'function') {
+              logger.info(`Updating layer state: ${name} = ${state}`);
+              window.layerStateManager.updateLayerState(name, state);
+            }
+          });
+        }
+
+        // Now call the appropriate setters for each layer
+        const states = window.layerStateManager.getAllLayerStates();
+
+        // Handle Boston Buildings
+        if (states.showBostonBuildings !== undefined && window.setBostonBuildingsVisible) {
+          logger.info(`Setting Boston Buildings visibility to: ${states.showBostonBuildings}`);
+          window.setBostonBuildingsVisible(states.showBostonBuildings);
+        }
+
+        // Handle 3D Buildings
+        if (states.show3DBuildings !== undefined && window.set3DBuildingsVisible) {
+          logger.info(`Setting 3D Buildings visibility to: ${states.show3DBuildings}`);
+          window.set3DBuildingsVisible(states.show3DBuildings);
+        }
+
+        // Handle POI Markers
+        if (states.showPOIMarkers !== undefined && window.setPOIMarkersVisible) {
+          logger.info(`Setting POI Markers visibility to: ${states.showPOIMarkers}`);
+          window.setPOIMarkersVisible(states.showPOIMarkers);
+        }
+
+        // Handle OSM POIs
+        if (states.showOSMPOIs !== undefined && window.setOSMPOIsVisible) {
+          logger.info(`Setting OSM POIs visibility to: ${states.showOSMPOIs}`);
+          window.setOSMPOIsVisible(states.showOSMPOIs);
+        }
+
+        // Handle Parks
+        if (states.showParks !== undefined && window.setParksVisible) {
+          logger.info(`Setting Parks visibility to: ${states.showParks}`);
+          window.setParksVisible(states.showParks);
+        }
+
+        // Handle Roads
+        if (states.showRoads !== undefined && window.setRoadsVisible) {
+          logger.info(`Setting Roads visibility to: ${states.showRoads}`);
+          window.setRoadsVisible(states.showRoads);
+        }
+
+        // Handle Permits
+        if (states.showPermits !== undefined && window.setPermitsVisible) {
+          logger.info(`Setting Permits visibility to: ${states.showPermits}`);
+          window.setPermitsVisible(states.showPermits);
+        }
+
+        // Handle New Permits
+        if (states.showNewPermits !== undefined && window.setNewPermitsVisible) {
+          logger.info(`Setting New Permits visibility to: ${states.showNewPermits}`);
+          window.setNewPermitsVisible(states.showNewPermits);
+        }
+
+        // Handle Permit Census
+        if (states.showPermitCensus !== undefined && window.setPermitCensusVisible) {
+          logger.info(`Setting Permit Census visibility to: ${states.showPermitCensus}`);
+          window.setPermitCensusVisible(states.showPermitCensus);
+        }
+
+        // Handle City Budget
+        if (states.showCityBudget !== undefined && window.setCityBudgetVisible) {
+          logger.info(`Setting City Budget visibility to: ${states.showCityBudget}`);
+          window.setCityBudgetVisible(states.showCityBudget);
+        }
+
+        // Schedule a final verification check
+        setTimeout(() => {
+          logger.info('Final verification of critical layer states:');
+          logger.info('=== FINAL VERIFICATION OF MAP LAYERS ===');
+
+          // Get all available layers
+          const availableLayers = map.getStyle().layers.map(layer => layer.id);
+          logger.info(`Available layers for final verification: ${availableLayers.length}`);
+
+          // Check Boston Buildings
+          const bostonBuildingsVisible = ['boston-buildings-fill', 'boston-buildings-outline', 'boston-buildings-labels']
+            .some(layerId => map.getLayer(layerId) && map.getLayoutProperty(layerId, 'visibility') !== 'none');
+          const bostonBuildingsState = window.layerStateManager.getLayerState('showBostonBuildings');
+          logger.info(`Final Boston Buildings state: ${bostonBuildingsState}`);
+          logger.info(`Final Boston Buildings layer visible: ${bostonBuildingsVisible}`);
+
+          // Check 3D Buildings
+          const buildings3DVisible = ['3d-buildings', 'buildings-3d-layer', 'osm-buildings-3d', 'harbor-buildings-3d']
+            .some(layerId => map.getLayer(layerId) && map.getLayoutProperty(layerId, 'visibility') !== 'none');
+          const buildings3DState = window.layerStateManager.getLayerState('show3DBuildings');
+          logger.info(`Final 3D Buildings state: ${buildings3DState}`);
+          logger.info(`Final 3D Buildings layer visible: ${buildings3DVisible}`);
+
+          // Check POI Markers
+          const poiMarkersVisible = map.getLayer('poi-label') && map.getLayoutProperty('poi-label', 'visibility') !== 'none';
+          const poiMarkersState = window.layerStateManager.getLayerState('showPOIMarkers');
+          logger.info(`Final POI Markers state: ${poiMarkersState}`);
+          logger.info(`Final POI Markers layer visible: ${poiMarkersVisible}`);
+
+          // Check Parks
+          logger.info('[FINAL VERIFICATION] Checking Parks state');
+          if (sceneState.showParks !== undefined) {
+            const parksVisible = ['national-park', 'landuse']
+              .some(layerId => map.getLayer(layerId) && map.getLayoutProperty(layerId, 'visibility') !== 'none');
+            if (parksVisible !== sceneState.showParks && window.setParksVisible) {
+              logger.warn(`Parks visibility mismatch, fixing: expected=${sceneState.showParks}, actual=${parksVisible}`);
+              window.setParksVisible(sceneState.showParks);
+            }
+          }
+
+          // Check OSM POIs
+          logger.info('[FINAL VERIFICATION] Checking OSM POIs state');
+          if (sceneState.showOSMPOIs !== undefined && window.setOSMPOIsVisible) {
+            const osmState = window.layerStateManager.getLayerState('showOSMPOIs');
+            if (osmState !== sceneState.showOSMPOIs) {
+              logger.warn(`OSM POIs state mismatch, fixing: expected=${sceneState.showOSMPOIs}, actual=${osmState}`);
+              window.setOSMPOIsVisible(sceneState.showOSMPOIs);
+            }
+          }
+
+          // Check Boston Buildings
+          logger.info('[FINAL] Checking Boston Buildings state');
+          if (sceneState.showBostonBuildings !== undefined && window.setBostonBuildingsVisible) {
+            if (bostonBuildingsVisible !== sceneState.showBostonBuildings) {
+              logger.warn(`Boston Buildings visibility mismatch, fixing: expected=${sceneState.showBostonBuildings}, actual=${bostonBuildingsVisible}`);
+              window.setBostonBuildingsVisible(sceneState.showBostonBuildings);
+            }
+          }
+        }, 1000);
+
+        // Return success
+        return true;
+      }
+
+      // If we still can't use the layer state manager, fall back to the old method
+      logger.warn('Failed to create layer state manager, using legacy fallback method');
 
       // Ensure we have valid state objects
       const {
@@ -1435,17 +2541,66 @@ const SceneManager = ({
       logger.info('- poiGraphShowCurve:', sceneState.poiGraphShowCurve);
       logger.info('- poiGraphShowRadius:', sceneState.poiGraphShowRadius);
 
+      // The poiGraphOpen state has already been determined by our enhanced visibility detection
+      // in the captureLayerStates function. We should trust this value as it's the most accurate.
+
       // Check if POI Graph is currently open and capture its state
       try {
-        // Check if the POI Graph component is visible in the DOM
+        // IMPORTANT: We need to use the value that was already determined by our enhanced visibility detection
+        // This is the most accurate value and should be trusted over any other checks
+        let isPOIGraphOpen = sceneState.poiGraphOpen;
+
+        console.log('%cUsing previously determined POI Graph state:', 'background: #4caf50; color: white;', isPOIGraphOpen);
+
+        // DO NOT override the value that was already determined
+        // The following checks are only for logging purposes
+
+        // Log DOM state for debugging
         const poiGraphElement = document.querySelector('.poi-graph-container');
         if (poiGraphElement) {
-          console.log('%cPOI Graph is open in the DOM', 'background: #4caf50; color: white;');
-          sceneState.poiGraphOpen = true;
+          const computedStyle = window.getComputedStyle(poiGraphElement);
+          const isVisibleInDOM = computedStyle.display !== 'none' &&
+                               computedStyle.opacity !== '0' &&
+                               !poiGraphElement.classList.contains('hidden');
+          console.log('%cPOI Graph DOM visibility check:', 'background: #4caf50; color: white;', isVisibleInDOM);
+        } else {
+          console.log('%cPOI Graph element not found in DOM', 'background: #4caf50; color: white;');
+        }
 
+        // Log toggle button state for debugging
+        const poiGraphToggleButton = document.querySelector('button[title="Show POI Stats"]');
+        if (poiGraphToggleButton) {
+          const isButtonActive = poiGraphToggleButton.classList.contains('active');
+          console.log('%cPOI Graph toggle button state:', 'background: #4caf50; color: white;', isButtonActive);
+        } else {
+          console.log('%cPOI Graph toggle button not found', 'background: #4caf50; color: white;');
+        }
+
+        // Log layer state manager state for debugging
+        if (window.layerStateManager) {
+          const layerStates = window.layerStateManager.getAllLayerStates();
+          console.log('%cPOI Graph state in layer manager:', 'background: #4caf50; color: white;', layerStates.poiGraphOpen);
+        }
+
+        // Log POI Graph manager state for debugging
+        if (window.poiGraphManager && typeof window.poiGraphManager.isOpen === 'function') {
+          const isOpenFromManager = window.poiGraphManager.isOpen();
+          console.log('%cPOI Graph manager reports open state:', 'background: #4caf50; color: white;', isOpenFromManager);
+        }
+
+        // Final state is the one that was already determined
+        console.log('%cFinal POI Graph open state:', 'background: #4caf50; color: white; font-size: 16px;', sceneState.poiGraphOpen);
+
+        // IMPORTANT: Trust the value that was already determined by our enhanced visibility detection
+        // Do not override it based on DOM checks which can be misleading
+
+        // If POI Graph is open, capture its detailed state
+        if (sceneState.poiGraphOpen) {
           // Try to get the POI Graph states from the layer state manager
           if (window.layerStateManager) {
             const layerStates = window.layerStateManager.getAllLayerStates();
+
+            // Capture all POI Graph related states
             sceneState.poiGraphShowOSM = layerStates.poiGraphShowOSM || false;
             sceneState.poiGraphShowCurve = layerStates.poiGraphShowCurve || false;
             sceneState.poiGraphShowRadius = layerStates.poiGraphShowRadius || false;
@@ -1458,12 +2613,76 @@ const SceneManager = ({
               poiVisibleCategories: sceneState.poiVisibleCategories
             });
           }
+
+          // Also try to get states directly from DOM elements
+          try {
+            // Check OSM toggle
+            const osmToggle = document.querySelector('.poi-graph-osm-toggle input[type="checkbox"]');
+            if (osmToggle) {
+              sceneState.poiGraphShowOSM = osmToggle.checked;
+              console.log('%cOSM toggle state from DOM:', 'background: #4caf50; color: white;', osmToggle.checked);
+            }
+
+            // Check curve toggle
+            const curveToggle = document.querySelector('.poi-graph-curve-toggle input[type="checkbox"]');
+            if (curveToggle) {
+              sceneState.poiGraphShowCurve = curveToggle.checked;
+              console.log('%cCurve toggle state from DOM:', 'background: #4caf50; color: white;', curveToggle.checked);
+            }
+
+            // Check radius toggle
+            const radiusToggle = document.querySelector('.poi-graph-radius-toggle input[type="checkbox"]');
+            if (radiusToggle) {
+              sceneState.poiGraphShowRadius = radiusToggle.checked;
+              console.log('%cRadius toggle state from DOM:', 'background: #4caf50; color: white;', radiusToggle.checked);
+            }
+          } catch (domError) {
+            console.warn('Error getting POI Graph states from DOM:', domError);
+          }
+
+          // Request current state from POI Graph via event bus, but don't trigger any visibility changes
+          if (window.mapEventBus) {
+            console.log('%cRequesting current POI Graph state via event bus (read-only)', 'background: #4caf50; color: white;');
+
+            // Use a special event that only requests state without triggering side effects
+            window.mapEventBus.emit('poiGraph:getStateOnly', {
+              callback: (state) => {
+                console.log('%cReceived POI Graph state from event bus:', 'background: #4caf50; color: white;', state);
+                // Update the scene state with the received state, but preserve the visibility state
+                if (state) {
+                  // Keep the current poiGraphOpen state
+                  const currentOpenState = sceneState.poiGraphOpen;
+
+                  // Copy other properties from the state
+                  const { isVisible, ...otherProps } = state;
+                  Object.assign(sceneState, otherProps);
+
+                  // Restore the original open state
+                  sceneState.poiGraphOpen = currentOpenState;
+
+                  console.log('%cPreserved original POI Graph open state:', 'background: #4caf50; color: white;', currentOpenState);
+                }
+              }
+            });
+          }
         } else {
-          console.log('%cPOI Graph is not open in the DOM', 'color: #4caf50;');
+          console.log('%cPOI Graph is not open', 'color: #4caf50;');
           sceneState.poiGraphOpen = false;
+
+          // Reset other POI Graph states to defaults
+          sceneState.poiGraphShowOSM = false;
+          sceneState.poiGraphShowCurve = false;
+          sceneState.poiGraphShowRadius = false;
+          sceneState.poiVisibleCategories = {};
         }
       } catch (error) {
         logger.warn('Error checking POI Graph visibility:', error);
+        // Set safe defaults
+        sceneState.poiGraphOpen = false;
+        sceneState.poiGraphShowOSM = false;
+        sceneState.poiGraphShowCurve = false;
+        sceneState.poiGraphShowRadius = false;
+        sceneState.poiVisibleCategories = {};
       }
 
       // Verify the states match what's in the UI
@@ -1549,6 +2768,73 @@ const SceneManager = ({
         cameraState.bearing = 0;
       }
 
+      // Log scene state details (only when debugging)
+      sceneLog('=== SCENE SAVE ===', sceneName);
+
+      // Log layer states in a structured way
+      sceneLog('Original Layers', {
+        showBostonBuildings: sceneState.showBostonBuildings,
+        show3DBuildings: sceneState.show3DBuildings,
+        showPOIMarkers: sceneState.showPOIMarkers,
+        showOSMPOIs: sceneState.showOSMPOIs,
+        showParks: sceneState.showParks,
+        showRoads: sceneState.showRoads,
+        showCensusTracts: sceneState.showCensusTracts,
+        showNetworkLayer: sceneState.showNetworkLayer,
+        useRoadPaths: sceneState.useRoadPaths
+      });
+
+      // Log new layers
+      sceneLog('New Layers', {
+        showPermits: sceneState.showPermits,
+        showNewPermits: sceneState.showNewPermits,
+        showPermitCensus: sceneState.showPermitCensus,
+        showCityBudget: sceneState.showCityBudget
+      });
+
+      // Log POI Graph states
+      sceneLog('POI Graph States', {
+        poiGraphOpen: sceneState.poiGraphOpen,
+        poiGraphShowOSM: sceneState.poiGraphShowOSM,
+        poiGraphShowCurve: sceneState.poiGraphShowCurve,
+        poiGraphShowRadius: sceneState.poiGraphShowRadius
+      });
+
+      // Log camera state
+      sceneLog('Camera State', {
+        center: cameraState.center ? [cameraState.center.lng, cameraState.center.lat] : 'Invalid',
+        zoom: cameraState.zoom,
+        pitch: cameraState.pitch,
+        bearing: cameraState.bearing
+      });
+
+      // Check for any missing or undefined states
+      const missingStates = [];
+      const criticalStates = [
+        'showBostonBuildings', 'show3DBuildings', 'showPOIMarkers', 'showOSMPOIs',
+        'showParks', 'showPermits', 'showNewPermits', 'showPermitCensus', 'showCityBudget',
+        'poiGraphOpen'
+      ];
+
+      criticalStates.forEach(state => {
+        if (sceneState[state] === undefined) {
+          missingStates.push(state);
+        }
+      });
+
+      if (missingStates.length > 0) {
+        logger.warn('Missing critical states:', missingStates);
+      }
+
+      // Check if POI Graph state is consistent
+      if (sceneState.poiGraphOpen) {
+        const poiGraphContainer = document.querySelector('.poi-graph-container');
+        if (!poiGraphContainer) {
+          logger.warn('Inconsistency: POI Graph is marked as open but container not found in DOM');
+        }
+      }
+
+      // Create the scene object
       const newScene = {
         id: Date.now(),
         name: sceneName,
@@ -1557,13 +2843,18 @@ const SceneManager = ({
         camera: cameraState
       };
 
+      // Log full scene data at debug level only
       logger.debug('Full Scene Data:', newScene);
+      sceneLog('Full Scene Data', newScene);
 
       const updatedScenes = [...scenes, newScene];
       setScenes(updatedScenes);
       localStorage.setItem('mapScenes', JSON.stringify(updatedScenes));
       setSceneName('');
-      logger.info('Scene saved successfully');
+
+      // Log success message
+      logger.info('Scene saved successfully:', sceneName);
+      sceneLog('SCENE SAVED SUCCESSFULLY', sceneName);
     } catch (error) {
       logger.error('Error saving scene:', error);
     }
@@ -1611,13 +2902,76 @@ const SceneManager = ({
       }
     };
 
-    console.log('%cScene State to Restore:', 'font-weight: bold; color: #0f9d58; background: yellow; padding: 5px;', {
+    // Log scene restoration details (only when debugging)
+    sceneLog('=== SCENE RESTORE ===', scene.name, 'background: #db4437; color: white;');
+
+    // Log layer states in a structured way
+    sceneLog('Original Layers', {
       showBostonBuildings: stateToRestore.showBostonBuildings,
       show3DBuildings: stateToRestore.show3DBuildings,
-      showParks: stateToRestore.showParks,
       showPOIMarkers: stateToRestore.showPOIMarkers,
-      showOSMPOIs: stateToRestore.showOSMPOIs
+      showOSMPOIs: stateToRestore.showOSMPOIs,
+      showParks: stateToRestore.showParks,
+      showRoads: stateToRestore.showRoads,
+      showCensusTracts: stateToRestore.showCensusTracts,
+      showNetworkLayer: stateToRestore.showNetworkLayer,
+      useRoadPaths: stateToRestore.useRoadPaths
+    }, 'background: #db4437; color: white;');
+
+    // Log new layers
+    sceneLog('New Layers', {
+      showPermits: stateToRestore.showPermits,
+      showNewPermits: stateToRestore.showNewPermits,
+      showPermitCensus: stateToRestore.showPermitCensus,
+      showCityBudget: stateToRestore.showCityBudget
+    }, 'background: #db4437; color: white;');
+
+    // Log POI Graph states
+    sceneLog('POI Graph States', {
+      poiGraphOpen: stateToRestore.poiGraphOpen,
+      poiGraphShowOSM: stateToRestore.poiGraphShowOSM,
+      poiGraphShowCurve: stateToRestore.poiGraphShowCurve,
+      poiGraphShowRadius: stateToRestore.poiGraphShowRadius,
+      poiVisibleCategories: stateToRestore.poiVisibleCategories
+    }, 'background: #db4437; color: white;');
+
+    // Log camera state if available
+    if (scene.camera) {
+      sceneLog('Camera State', {
+        center: scene.camera.center ? [scene.camera.center.lng, scene.camera.center.lat] : 'Invalid',
+        zoom: scene.camera.zoom,
+        pitch: scene.camera.pitch,
+        bearing: scene.camera.bearing
+      }, 'background: #db4437; color: white;');
+    }
+
+    // Check for any missing or undefined states
+    const missingStates = [];
+    const criticalStates = [
+      'showBostonBuildings', 'show3DBuildings', 'showPOIMarkers', 'showOSMPOIs',
+      'showParks', 'showPermits', 'showNewPermits', 'showPermitCensus', 'showCityBudget',
+      'poiGraphOpen'
+    ];
+
+    criticalStates.forEach(state => {
+      if (stateToRestore[state] === undefined) {
+        missingStates.push(state);
+      }
     });
+
+    if (missingStates.length > 0) {
+      logger.warn('Missing critical states in scene:', missingStates);
+    }
+
+    // Check current state of the UI before restoration
+    const poiGraphContainer = document.querySelector('.poi-graph-container');
+    logger.debug('Current UI state before restoration:', {
+      poiGraphOpen: !!poiGraphContainer,
+      currentLayerStates: window.layerStateManager ? window.layerStateManager.getAllLayerStates() : 'Not available'
+    });
+
+    // Log the scene state that will be restored
+    logger.info('Restoring scene:', scene.name);
 
     // Apply the Parks state from the scene
     if (stateToRestore.showParks !== undefined) {
@@ -2036,29 +3390,70 @@ const SceneManager = ({
               essential: true // This makes the camera movement a priority
             });
 
-            // Reset flag after animation completes
+            // Reset flag after animation completes and verify camera position
             setTimeout(() => {
               isChangingCamera.current = false;
 
               // Update current camera state after animation
-              setCurrentCamera({
+              const newCamera = {
                 center: map.getCenter(),
                 zoom: map.getZoom(),
                 pitch: map.getPitch(),
                 bearing: map.getBearing()
-              });
-            }, 1600);
+              };
+              setCurrentCamera(newCamera);
 
-            // Double-check that the camera position was updated
-            setTimeout(() => {
-              const newCenter = map.getCenter();
-              const newZoom = map.getZoom();
+              // Log the camera position after update
               logger.info('Camera position after update:', {
-                center: [newCenter.lng, newCenter.lat],
-                zoom: newZoom,
-                pitch: map.getPitch(),
-                bearing: map.getBearing()
+                center: [newCamera.center.lng, newCamera.center.lat],
+                zoom: newCamera.zoom,
+                pitch: newCamera.pitch,
+                bearing: newCamera.bearing
               });
+
+              // Verify that the camera position matches what was requested
+              const targetCenter = scene.camera.center;
+              const targetZoom = scene.camera.zoom;
+              const targetPitch = scene.camera.pitch;
+              const targetBearing = scene.camera.bearing;
+
+              // Check if the camera position is close to the target
+              const centerDiff = Math.abs(newCamera.center.lng - targetCenter.lng) +
+                                Math.abs(newCamera.center.lat - targetCenter.lat);
+              const zoomDiff = Math.abs(newCamera.zoom - targetZoom);
+              const pitchDiff = Math.abs(newCamera.pitch - targetPitch);
+              const bearingDiff = Math.abs(newCamera.bearing - targetBearing);
+
+              // Log any significant differences
+              if (centerDiff > 0.01 || zoomDiff > 0.1 || pitchDiff > 1 || bearingDiff > 1) {
+                logger.warn('Camera position differs from target:', {
+                  centerDiff,
+                  zoomDiff,
+                  pitchDiff,
+                  bearingDiff
+                });
+
+                // Try to fix the camera position if it's significantly different
+                if (centerDiff > 0.1 || zoomDiff > 0.5) {
+                  logger.warn('Significant camera position difference, attempting to fix');
+
+                  // Use jumpTo for an immediate camera update
+                  map.jumpTo({
+                    center: [targetCenter.lng, targetCenter.lat],
+                    zoom: targetZoom,
+                    pitch: targetPitch,
+                    bearing: targetBearing
+                  });
+
+                  // Update the camera state again
+                  setCurrentCamera({
+                    center: map.getCenter(),
+                    zoom: map.getZoom(),
+                    pitch: map.getPitch(),
+                    bearing: map.getBearing()
+                  });
+                }
+              }
             }, 1600);
           } catch (cameraError) {
             logger.warn('Could not update camera position:', cameraError);
@@ -2260,6 +3655,99 @@ const SceneManager = ({
             }, 500);
           }
 
+          // Final verification of all layer states
+          sceneLog('=== FINAL VERIFICATION ===', scene.name, 'background: #4285f4; color: white;');
+
+          // Get the current state from the layer state manager
+          if (window.layerStateManager) {
+            const finalStates = window.layerStateManager.getAllLayerStates();
+            const expectedStates = scene.toggleStates || scene;
+
+            // Check for mismatches between expected and actual states
+            const mismatches = [];
+
+            // Check original layers
+            if (finalStates.showBostonBuildings !== expectedStates.showBostonBuildings) mismatches.push('showBostonBuildings');
+            if (finalStates.show3DBuildings !== expectedStates.show3DBuildings) mismatches.push('show3DBuildings');
+            if (finalStates.showPOIMarkers !== expectedStates.showPOIMarkers) mismatches.push('showPOIMarkers');
+            if (finalStates.showOSMPOIs !== expectedStates.showOSMPOIs) mismatches.push('showOSMPOIs');
+            if (finalStates.showParks !== expectedStates.showParks) mismatches.push('showParks');
+            if (finalStates.showCensusTracts !== expectedStates.showCensusTracts) mismatches.push('showCensusTracts');
+            if (finalStates.showNetworkLayer !== expectedStates.showNetworkLayer) mismatches.push('showNetworkLayer');
+            if (finalStates.useRoadPaths !== expectedStates.useRoadPaths) mismatches.push('useRoadPaths');
+
+            // Check new layers
+            if (finalStates.showPermits !== expectedStates.showPermits) mismatches.push('showPermits');
+            if (finalStates.showNewPermits !== expectedStates.showNewPermits) mismatches.push('showNewPermits');
+            if (finalStates.showPermitCensus !== expectedStates.showPermitCensus) mismatches.push('showPermitCensus');
+            if (finalStates.showCityBudget !== expectedStates.showCityBudget) mismatches.push('showCityBudget');
+
+            // Check POI Graph states
+            if (finalStates.poiGraphOpen !== expectedStates.poiGraphOpen) mismatches.push('poiGraphOpen');
+            if (finalStates.poiGraphShowOSM !== expectedStates.poiGraphShowOSM) mismatches.push('poiGraphShowOSM');
+            if (finalStates.poiGraphShowCurve !== expectedStates.poiGraphShowCurve) mismatches.push('poiGraphShowCurve');
+            if (finalStates.poiGraphShowRadius !== expectedStates.poiGraphShowRadius) mismatches.push('poiGraphShowRadius');
+
+            // Log the results
+            if (mismatches.length > 0) {
+              logger.warn('State mismatches after restoration:', mismatches);
+
+              // Try to fix critical mismatches
+              logger.info('Attempting to fix critical mismatches...');
+
+              mismatches.forEach(state => {
+                // Only fix if the expected state is defined
+                if (expectedStates[state] !== undefined) {
+                  logger.debug(`Fixing ${state} = ${expectedStates[state]}`);
+                  window.layerStateManager.updateLayerState(state, expectedStates[state]);
+
+                  // For critical layers, also try to update them directly
+                  if (state === 'showBostonBuildings' && window.setBostonBuildingsVisible) {
+                    window.setBostonBuildingsVisible(expectedStates[state]);
+                  }
+                  else if (state === 'show3DBuildings' && window.set3DBuildingsVisible) {
+                    window.set3DBuildingsVisible(expectedStates[state]);
+                  }
+                  else if (state === 'showParks' && window.setParksVisible) {
+                    window.setParksVisible(expectedStates[state]);
+                  }
+                  else if (state === 'showOSMPOIs' && window.setOSMPOIsVisible) {
+                    window.setOSMPOIsVisible(expectedStates[state]);
+                  }
+                  else if (state === 'showPermits' && window.setPermitsVisible) {
+                    window.setPermitsVisible(expectedStates[state]);
+                  }
+                  else if (state === 'showNewPermits' && window.setNewPermitsVisible) {
+                    window.setNewPermitsVisible(expectedStates[state]);
+                  }
+                  else if (state === 'showPermitCensus' && window.setPermitCensusVisible) {
+                    window.setPermitCensusVisible(expectedStates[state]);
+                  }
+                  else if (state === 'showCityBudget' && window.setCityBudgetVisible) {
+                    window.setCityBudgetVisible(expectedStates[state]);
+                  }
+                }
+              });
+            } else {
+              logger.debug('All states match expected values');
+            }
+
+            // Log the final state at debug level only
+            sceneLog('Final Layer States', finalStates, 'background: #4285f4; color: white;');
+          }
+
+          // Verify POI Graph state
+          const poiGraphContainer = document.querySelector('.poi-graph-container');
+          const poiGraphShouldBeOpen = scene.toggleStates?.poiGraphOpen || false;
+          const poiGraphIsOpen = !!poiGraphContainer;
+
+          if (poiGraphShouldBeOpen !== poiGraphIsOpen) {
+            logger.warn('POI Graph state mismatch:', {
+              shouldBeOpen: poiGraphShouldBeOpen,
+              isActuallyOpen: poiGraphIsOpen
+            });
+          }
+
           // Emit the loaded event
           if (window.mapEventBus && typeof window.mapEventBus.emit === 'function') {
             logger.info('Emitting scene:loaded event');
@@ -2272,24 +3760,120 @@ const SceneManager = ({
               scene: scene
             });
 
-            // Check if POI Graph should be opened based on scene state
-            if (scene.toggleStates?.poiGraphOpen) {
-              console.log('%c[SCENE] POI Graph should be open in this scene', 'background: #4caf50; color: white;');
+            // Check if POI Graph visibility needs to be adjusted based on scene state
+            // First, determine if the POI Graph should be open or closed in this scene
+            // Default to false if not specified in the scene
+            const poiGraphShouldBeOpen = scene.toggleStates?.poiGraphOpen === true;
+
+            // Check if the POI Graph is currently open by looking for the container element
+            const poiGraphContainer = document.querySelector('.poi-graph-container');
+
+            // IMPORTANT: We need to do a more thorough check to determine if the POI Graph is really visible
+            // Just checking if the element exists is not enough - it might be in the DOM but hidden
+            const poiGraphIsOpen = poiGraphContainer &&
+                                  window.getComputedStyle(poiGraphContainer).display !== 'none' &&
+                                  window.getComputedStyle(poiGraphContainer).opacity !== '0';
+
+            // Also check if the element has a non-zero size and is positioned on screen
+            let isReallyVisible = false;
+            if (poiGraphIsOpen) {
+              const rect = poiGraphContainer.getBoundingClientRect();
+              const hasVisibleSize = rect.width > 10 && rect.height > 10;
+              const isOnScreen = rect.bottom > 0 && rect.top < window.innerHeight;
+              isReallyVisible = hasVisibleSize && isOnScreen;
+            }
+
+            logger.info('POI Graph visibility check:', {
+              shouldBeOpen: poiGraphShouldBeOpen,
+              isCurrentlyOpen: isReallyVisible
+            });
+
+            // If there's a mismatch between desired and current state, fix it
+            if (poiGraphShouldBeOpen && !isReallyVisible) {
+              logger.info('POI Graph should be open in this scene but is not');
+              sceneLog('POI Graph should be open but is not', null, 'background: #4caf50; color: white;');
 
               // Try to find and click the POI Graph toggle button if it exists
               setTimeout(() => {
                 try {
                   const poiGraphToggleButton = document.querySelector('button[title="Show POI Stats"]');
-                  if (poiGraphToggleButton && !document.querySelector('.poi-graph-container')) {
-                    console.log('%c[SCENE] Clicking POI Graph toggle button', 'background: #4caf50; color: white;');
+                  if (poiGraphToggleButton) {
+                    logger.debug('Clicking POI Graph toggle button to open');
                     poiGraphToggleButton.click();
+
+                    // After opening, set the other states
+                    setTimeout(() => {
+                      // Try to set OSM toggle
+                      if (scene.toggleStates?.poiGraphShowOSM !== undefined) {
+                        const osmToggle = document.querySelector('.poi-graph-osm-toggle input[type="checkbox"]');
+                        if (osmToggle && osmToggle.checked !== scene.toggleStates.poiGraphShowOSM) {
+                          logger.debug('Setting OSM toggle to', scene.toggleStates.poiGraphShowOSM);
+                          osmToggle.click();
+                        }
+                      }
+
+                      // Try to set Curve toggle
+                      if (scene.toggleStates?.poiGraphShowCurve !== undefined) {
+                        const curveToggle = document.querySelector('.poi-graph-curve-toggle input[type="checkbox"]');
+                        if (curveToggle && curveToggle.checked !== scene.toggleStates.poiGraphShowCurve) {
+                          logger.debug('Setting Curve toggle to', scene.toggleStates.poiGraphShowCurve);
+                          curveToggle.click();
+                        }
+                      }
+
+                      // Try to set Radius toggle
+                      if (scene.toggleStates?.poiGraphShowRadius !== undefined) {
+                        const radiusToggle = document.querySelector('.poi-graph-radius-toggle input[type="checkbox"]');
+                        if (radiusToggle && radiusToggle.checked !== scene.toggleStates.poiGraphShowRadius) {
+                          logger.debug('Setting Radius toggle to', scene.toggleStates.poiGraphShowRadius);
+                          radiusToggle.click();
+                        }
+                      }
+                    }, 500);
+                  } else {
+                    logger.warn('Could not find POI Graph toggle button to open graph');
                   }
                 } catch (error) {
-                  console.error('Error opening POI Graph:', error);
+                  logger.error('Error opening POI Graph:', error);
                 }
               }, 500);
+            } else if (!poiGraphShouldBeOpen && isReallyVisible) {
+              logger.info('POI Graph should be closed in this scene but is open');
+              sceneLog('POI Graph should be closed but is open', null, 'background: #4caf50; color: white;');
+
+              // Try to find and click the POI Graph toggle button to close it
+              setTimeout(() => {
+                try {
+                  const poiGraphToggleButton = document.querySelector('button[title="Show POI Stats"]');
+                  if (poiGraphToggleButton) {
+                    logger.debug('Clicking POI Graph toggle button to close');
+                    poiGraphToggleButton.click();
+                  } else {
+                    logger.warn('Could not find POI Graph toggle button to close graph');
+
+                    // Try alternative method: use the event bus
+                    if (window.mapEventBus) {
+                      logger.debug('Using mapEventBus to close POI Graph');
+                      window.mapEventBus.emit('poiGraph:visibility', {
+                        isVisible: false
+                      });
+                    }
+                  }
+                } catch (error) {
+                  logger.error('Error closing POI Graph:', error);
+                }
+              }, 500);
+            } else {
+              logger.info('POI Graph visibility is already correct:',
+                poiGraphShouldBeOpen === isReallyVisible ?
+                  `Both ${poiGraphShouldBeOpen ? 'open' : 'closed'}` :
+                  `Should be ${poiGraphShouldBeOpen ? 'open' : 'closed'} but is ${isReallyVisible ? 'open' : 'closed'}`);
             }
           }
+
+          // Final log message
+          logger.info('Scene restoration complete:', scene.name);
+          sceneLog('SCENE RESTORATION COMPLETE', scene.name, 'background: #4285f4; color: white;');
         }, 1000);
 
         // Close the panel

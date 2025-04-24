@@ -1,9 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createRoot } from 'react-dom/client';
+import mapboxgl from 'mapbox-gl';
+import POIGraphPopup from '../POIGraphPopup';
 import styled from 'styled-components';
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
+  LogarithmicScale,
   BarElement,
   Title as ChartTitle,
   Tooltip,
@@ -50,6 +54,7 @@ const transitionPlugin = {
 ChartJS.register(
   CategoryScale,
   LinearScale,
+  LogarithmicScale,  // Add LogarithmicScale for log axis
   BarElement,
   ArcElement,
   PointElement,
@@ -60,6 +65,38 @@ ChartJS.register(
   Filler,  // Required for fill: true option
   transitionPlugin  // Register our custom plugin
 );
+
+// Custom hook to safely manage chart reference
+const useSafeChartRef = () => {
+  const chartRef = useRef(null);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      if (chartRef.current) {
+        try {
+          chartRef.current.destroy();
+          chartRef.current = null;
+        } catch (err) {
+          console.error('Error destroying chart:', err);
+        }
+      }
+    };
+  }, []);
+
+  const updateChart = useCallback((updateFn) => {
+    if (isMountedRef.current && chartRef.current) {
+      try {
+        updateFn(chartRef.current);
+      } catch (err) {
+        console.error('Error updating chart:', err);
+      }
+    }
+  }, []);
+
+  return { chartRef, updateChart, isMounted: isMountedRef };
+};
 
 // Styled components
 const GraphContainer = styled.div`
@@ -321,17 +358,23 @@ const LiveIcon = () => (
   </svg>
 );
 
-// Set debug logging flag
+// Set debug logging flag - set to true only when actively debugging POI Graph issues
 const DEBUG_LOGGING = false;
 
 // Helper function for logging that checks DEBUG_LOGGING flag
-const log = (...args) => {
+const log = (message, data) => {
   if (DEBUG_LOGGING) {
-    console.log(...args);
+    if (data !== undefined) {
+      console.log(`[POI Graph] ${message}`, data);
+    } else {
+      console.log(`[POI Graph] ${message}`);
+    }
   }
 };
 
 const POIGraph = ({ map, showPOIMarkers, setShowPOIMarkers, showOSMPOIs, setShowOSMPOIs, graphOnlyMode, setGraphOnlyMode, onCategoryVisibilityChange, poiDataBarRef }) => {
+  // Reference to track the current active popup
+  const activePopupRef = useRef(null);
   const [isVisible, setIsVisible] = useState(false);
   const [data, setData] = useState(generateSampleData());
   const [isLive, setIsLive] = useState(true);
@@ -349,7 +392,7 @@ const POIGraph = ({ map, showPOIMarkers, setShowPOIMarkers, showOSMPOIs, setShow
   // Track max values for sliders
   const [maxValues, setMaxValues] = useState({ maxRating: 5, maxReviews: 100 });
   const mapRef = useRef(map);
-  const chartRef = useRef(null);
+  const { chartRef, updateChart, isMounted } = useSafeChartRef();
   const categoryMenuRef = useRef(null);
 
   // Initialize visible categories when data changes
@@ -387,9 +430,18 @@ const POIGraph = ({ map, showPOIMarkers, setShowPOIMarkers, showOSMPOIs, setShow
 
     // If OSM Data mode is already active, ensure map labels are hidden
     if (showOSM && mapRef.current?.current) {
-      console.log('%c[OSM DATA] Hiding map labels on map reference update', 'background: #4caf50; color: white;');
+      log('Hiding map labels on map reference update');
       toggleMapLabels(false);
     }
+
+    // Cleanup function to remove any active popups when component unmounts
+    return () => {
+      if (activePopupRef.current) {
+        log('Removing popup on unmount');
+        activePopupRef.current.remove();
+        activePopupRef.current = null;
+      }
+    };
   }, [map, showOSM]);
 
   // Register POI Graph states with layerStateManager
@@ -410,7 +462,7 @@ const POIGraph = ({ map, showPOIMarkers, setShowPOIMarkers, showOSMPOIs, setShow
       // Register visible categories
       window.layerStateManager.updateLayerState('poiVisibleCategories', visibleCategories);
 
-      console.log('%c[POI Graph] Registered states with layerStateManager', 'background: #4caf50; color: white;');
+      log('Registered states with layerStateManager');
     }
   }, [isVisible, showOSM, showCurve, showRadius, visibleCategories]);
 
@@ -425,12 +477,49 @@ const POIGraph = ({ map, showPOIMarkers, setShowPOIMarkers, showOSMPOIs, setShow
 
     // Listen for scene loading events
     const unsubscribeSceneLoading = mapEventBus.on('scene:loading', (event) => {
-      console.log('%c[POI Graph] Scene loading event received', 'background: #4caf50; color: white;', event);
+      log('Scene loading event received', event);
+    });
+
+    // Listen for read-only state requests (for saving scenes without triggering visibility changes)
+    const unsubscribeGetStateOnly = mapEventBus.on('poiGraph:getStateOnly', (event) => {
+      log('Received read-only state request');
+
+      // If a callback was provided, send the current state
+      if (event.callback && typeof event.callback === 'function') {
+        const currentState = {
+          poiGraphOpen: isVisible,
+          poiGraphShowOSM: showOSM,
+          poiGraphShowCurve: showCurve,
+          poiGraphShowRadius: showRadius,
+          poiVisibleCategories: visibleCategories
+        };
+
+        log('Sending current state (read-only)', currentState);
+        event.callback(currentState);
+      }
+    });
+
+    // Listen for visibility check requests (used to verify if the POI Graph is actually visible)
+    const unsubscribeIsVisible = mapEventBus.on('poiGraph:isVisible', (event) => {
+      log('Received visibility check request');
+
+      // If a callback was provided, send the current visibility state
+      if (event.callback && typeof event.callback === 'function') {
+        // Check if the component is actually visible
+        const poiGraphContainer = document.querySelector('.poi-graph-container');
+        const isReallyVisible = isVisible &&
+                               poiGraphContainer &&
+                               window.getComputedStyle(poiGraphContainer).display !== 'none' &&
+                               window.getComputedStyle(poiGraphContainer).opacity !== '0';
+
+        log('Sending visibility state:', isReallyVisible);
+        event.callback(isReallyVisible);
+      }
     });
 
     // Listen for scene applied events
     const unsubscribeSceneApplied = mapEventBus.on('scene:applied', (event) => {
-      console.log('%c[POI Graph] Scene applied event received', 'background: #4caf50; color: white;', event);
+      log('Scene applied event received', event);
 
       // Check if the scene has POI Graph state information
       if (event.scene && event.scene.toggleStates) {
@@ -438,31 +527,31 @@ const POIGraph = ({ map, showPOIMarkers, setShowPOIMarkers, showOSMPOIs, setShow
 
         // Update POI Graph visibility if specified in the scene
         if (toggleStates.poiGraphOpen !== undefined) {
-          console.log('%c[POI Graph] Setting visibility from scene:', 'background: #4caf50; color: white;', toggleStates.poiGraphOpen);
+          log('Setting visibility from scene', toggleStates.poiGraphOpen);
           setIsVisible(toggleStates.poiGraphOpen);
         }
 
         // Update OSM data mode if specified in the scene
         if (toggleStates.poiGraphShowOSM !== undefined) {
-          console.log('%c[POI Graph] Setting OSM data mode from scene:', 'background: #4caf50; color: white;', toggleStates.poiGraphShowOSM);
+          log('Setting OSM data mode from scene', toggleStates.poiGraphShowOSM);
           setShowOSM(toggleStates.poiGraphShowOSM);
         }
 
         // Update curve mode if specified in the scene
         if (toggleStates.poiGraphShowCurve !== undefined) {
-          console.log('%c[POI Graph] Setting curve mode from scene:', 'background: #4caf50; color: white;', toggleStates.poiGraphShowCurve);
+          log('Setting curve mode from scene', toggleStates.poiGraphShowCurve);
           setShowCurve(toggleStates.poiGraphShowCurve);
         }
 
         // Update radius mode if specified in the scene
         if (toggleStates.poiGraphShowRadius !== undefined) {
-          console.log('%c[POI Graph] Setting radius mode from scene:', 'background: #4caf50; color: white;', toggleStates.poiGraphShowRadius);
+          log('Setting radius mode from scene', toggleStates.poiGraphShowRadius);
           setShowRadius(toggleStates.poiGraphShowRadius);
         }
 
         // Update visible categories if specified in the scene
         if (toggleStates.poiVisibleCategories) {
-          console.log('%c[POI Graph] Setting visible categories from scene:', 'background: #4caf50; color: white;', toggleStates.poiVisibleCategories);
+          log('Setting visible categories from scene', toggleStates.poiVisibleCategories);
           setVisibleCategories(toggleStates.poiVisibleCategories);
         }
       }
@@ -472,6 +561,8 @@ const POIGraph = ({ map, showPOIMarkers, setShowPOIMarkers, showOSMPOIs, setShow
       unsubscribeOsmLayer();
       unsubscribeSceneLoading();
       unsubscribeSceneApplied();
+      unsubscribeGetStateOnly();
+      unsubscribeIsVisible();
     };
   }, [showOSM]);
 
@@ -635,6 +726,13 @@ const POIGraph = ({ map, showPOIMarkers, setShowPOIMarkers, showOSMPOIs, setShow
         mapRef.current.current.resize();
         log('POI Graph: Triggered map resize');
       }, 300);
+    } else if (!isVisible) {
+      // If the graph is being hidden, remove any active popups
+      if (activePopupRef.current) {
+        console.log('%c[POI Graph] Removing popup when graph is hidden', 'background: #ff9800; color: white;');
+        activePopupRef.current.remove();
+        activePopupRef.current = null;
+      }
     }
   }, [isVisible]);
 
@@ -723,7 +821,7 @@ const POIGraph = ({ map, showPOIMarkers, setShowPOIMarkers, showOSMPOIs, setShow
             selectedPoint.options.radius = 7;
           }
 
-          chart.update();
+          updateChart(chart => chart.update());
 
           // Reset after animation
           setTimeout(() => {
@@ -734,7 +832,7 @@ const POIGraph = ({ map, showPOIMarkers, setShowPOIMarkers, showOSMPOIs, setShow
               point.options.borderWidth = 1;
               point.options.radius = 5;
             });
-            chart.update();
+            updateChart(chart => chart.update());
           }, 4000);
         } else {
           log('POI Graph: Chart reference not available');
@@ -828,35 +926,45 @@ const POIGraph = ({ map, showPOIMarkers, setShowPOIMarkers, showOSMPOIs, setShow
       log('POI Graph: Updating chart to highlight selected POI');
 
       // First update to apply the selection
-      chartRef.current.update();
+      updateChart(chart => chart.update());
 
       // Then force a second update after a short delay to ensure the highlighting is applied
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
+        // Check if component is still mounted and chart exists
         if (chartRef.current) {
-          // Ensure the selected point is marked in the current datasets
-          const datasets = chartRef.current.data.datasets;
-          let foundPoint = false;
+          try {
+            // Ensure the selected point is marked in the current datasets
+            const datasets = chartRef.current.data.datasets;
+            let foundPoint = false;
 
-          datasets.forEach(dataset => {
-            if (dataset.data) {
-              dataset.data.forEach(point => {
-                if (point && point.name === poi.name && point.category === poi.category) {
-                  // Ensure isSelected is true
-                  point.isSelected = true;
-                  foundPoint = true;
-                  log('POI Graph: Found and marked selected point in dataset');
-                }
-              });
+            datasets.forEach(dataset => {
+              if (dataset.data) {
+                dataset.data.forEach(point => {
+                  if (point && point.name === poi.name && point.category === poi.category) {
+                    // Ensure isSelected is true
+                    point.isSelected = true;
+                    foundPoint = true;
+                    log('POI Graph: Found and marked selected point in dataset');
+                  }
+                });
+              }
+            });
+
+            if (foundPoint) {
+              updateChart(chart => chart.update());
+            } else {
+              log('POI Graph: Selected point not found in current datasets');
             }
-          });
-
-          if (foundPoint) {
-            chartRef.current.update();
-          } else {
-            log('POI Graph: Selected point not found in current datasets');
+          } catch (err) {
+            console.error('Error updating chart:', err);
           }
         }
       }, 50);
+
+      // Store timeout ID for cleanup
+      const timeoutIds = window.poiGraphTimeouts || [];
+      timeoutIds.push(timeoutId);
+      window.poiGraphTimeouts = timeoutIds;
     }
 
     // If we have a map instance and POI coordinates, pan to the selected POI
@@ -876,14 +984,53 @@ const POIGraph = ({ map, showPOIMarkers, setShowPOIMarkers, showOSMPOIs, setShow
       const dataBarOpened = forceOpenPOIDataBar();
       console.log('%c[POI_GRAPH_DEBUG] Force open result:', 'background: #ff9800; color: white; font-size: 16px; padding: 5px;', dataBarOpened ? 'Success' : 'Failed');
 
-      // Emit event for map to handle POI selection
+      // Remove any existing popup first
+      if (activePopupRef.current) {
+        console.log('%c[POI Graph] Removing existing popup', 'background: #ff9800; color: white;');
+        activePopupRef.current.remove();
+        activePopupRef.current = null;
+      }
+
+      // Create our own popup instead of triggering the map marker popup
+      // Create popup content with React component
+      const popupContent = document.createElement('div');
+      popupContent.className = 'poi-graph-popup-content';
+
+      // Render our React component into the popup content
+      const root = createRoot(popupContent);
+      root.render(<POIGraphPopup poi={poi} />);
+
+      // Create and show popup
+      const popup = new mapboxgl.Popup({
+        offset: [0, -5],
+        closeButton: true,
+        closeOnClick: true,
+        maxWidth: '320px',
+        className: 'poi-graph-popup'
+      })
+        .setLngLat(poi.lngLat)
+        .setDOMContent(popupContent)
+        .addTo(mapRef.current.current);
+
+      // Store the popup reference so we can remove it later
+      activePopupRef.current = popup;
+
+      // Add an event listener to clear the reference when the popup is closed
+      popup.on('close', () => {
+        console.log('%c[POI Graph] Popup closed, clearing reference', 'background: #ff9800; color: white;');
+        activePopupRef.current = null;
+      });
+
+      // If we need to emit the poi:selected event for other functionality,
+      // we can include a source property to identify it came from the POI Graph
       mapEventBus.emit('poi:selected', {
         coordinates: poi.lngLat,
         properties: {
           name: poi.name,
           type: poi.category,
           lngLat: poi.lngLat
-        }
+        },
+        source: 'poigraph' // Add source to identify it came from POI Graph
       });
 
       // Emit a new event for POI Data Bar to handle POI selection
@@ -1661,17 +1808,23 @@ const POIGraph = ({ map, showPOIMarkers, setShowPOIMarkers, showOSMPOIs, setShow
         }
       },
       x: {
+        type: 'logarithmic',
         title: {
           display: true,
-          text: showCurve ? 'Value' : 'Number of Reviews',
+          text: showCurve ? 'Value' : 'Number of Reviews (log scale)',
           color: 'rgba(255, 255, 255, 0.7)'
         },
+        min: 1, // Minimum value for log scale (can't be 0)
         ticks: {
           color: 'rgba(255, 255, 255, 0.7)',
           callback: (value) => {
             if (showCurve) {
               return value.toFixed(1);
             } else {
+              // Format large numbers more nicely
+              if (value >= 1000) {
+                return (value / 1000).toFixed(0) + 'k';
+              }
               return value;
             }
           }
@@ -1924,7 +2077,7 @@ const POIGraph = ({ map, showPOIMarkers, setShowPOIMarkers, showOSMPOIs, setShow
       }
 
       categories[point.category].data.push({
-        x: reviews,
+        x: reviews > 0 ? reviews : 1, // Ensure x value is at least 1 for logarithmic scale
         y: rating,
         name: point.name,
         category: point.category,
@@ -1939,18 +2092,29 @@ const POIGraph = ({ map, showPOIMarkers, setShowPOIMarkers, showOSMPOIs, setShow
     }
 
     if (minReviews <= maxReviews) {
-      scatterOptions.scales.x.min = Math.floor(minReviews);
-      scatterOptions.scales.x.max = Math.ceil(maxReviews * 1.1);
+      // For logarithmic scale, we already set min to 1 in the scale options
+      // Set max to a nice round number for better readability
+      const logMax = Math.ceil(Math.log10(maxReviews));
+      scatterOptions.scales.x.max = Math.pow(10, logMax);
+      console.log(`Setting x-axis max to ${scatterOptions.scales.x.max} (log10 = ${logMax})`);
     }
 
     // If curve mode is enabled, transform the data into bell curves
     if (curveMode && allRatings.length > 0 && allReviews.length > 0) {
       console.log(`%c[CURVE MODE] Generating bell curves for ${allRatings.length} ratings and ${allReviews.length} reviews`, 'background: #9c27b0; color: white;');
 
-      // Update y-axis scale for curve mode
+      // Update scales for curve mode
       scatterOptions.scales.y.min = 0;
-      // Don't set max to allow auto-scaling
+      // Don't set y-max to allow auto-scaling
       scatterOptions.scales.y.max = undefined;
+
+      // Reset x-axis to linear for curve mode
+      scatterOptions.scales.x.type = 'linear';
+      scatterOptions.scales.x.min = Math.max(0, Math.floor(Math.min(...allRatings, ...allReviews) * 0.9));
+      scatterOptions.scales.x.max = Math.ceil(Math.max(...allRatings, ...allReviews) * 1.1);
+
+      // Update x-axis title to remove log scale mention
+      scatterOptions.scales.x.title.text = 'Value';
 
       // Generate bell curves
       const ratingCurveData = createBellCurve(allRatings);
@@ -2323,6 +2487,20 @@ const POIGraph = ({ map, showPOIMarkers, setShowPOIMarkers, showOSMPOIs, setShow
     return () => {
       log('POI Graph: Cleaning up');
 
+      // Destroy chart instance if it exists
+      if (chartRef.current) {
+        log('POI Graph: Destroying chart instance');
+        chartRef.current.destroy();
+        chartRef.current = null;
+      }
+
+      // Clear any pending timeouts
+      if (window.poiGraphTimeouts && window.poiGraphTimeouts.length > 0) {
+        log(`POI Graph: Clearing ${window.poiGraphTimeouts.length} pending timeouts`);
+        window.poiGraphTimeouts.forEach(id => clearTimeout(id));
+        window.poiGraphTimeouts = [];
+      }
+
       // Clear any active building highlights
       if (mapRef.current?.current) {
         try {
@@ -2424,8 +2602,9 @@ const POIGraph = ({ map, showPOIMarkers, setShowPOIMarkers, showOSMPOIs, setShow
     }
 
     // Force update of the chart with animation when mode changes
-    setTimeout(() => {
+    const timeoutId1 = setTimeout(() => {
       if (chartRef.current) {
+        try {
         // Get the chart instance
         const chart = chartRef.current;
 
@@ -2438,7 +2617,7 @@ const POIGraph = ({ map, showPOIMarkers, setShowPOIMarkers, showOSMPOIs, setShow
         };
 
         // Apply the animation
-        chart.update('active');
+        updateChart(chart => chart.update('active'));
 
         // After update, ensure selected POI is still highlighted
         if (selectedPOI) {
@@ -2446,13 +2625,12 @@ const POIGraph = ({ map, showPOIMarkers, setShowPOIMarkers, showOSMPOIs, setShow
 
           // Force multiple updates to ensure highlighting is applied
           // First update immediately
-          if (chartRef.current) {
-            chartRef.current.update();
-          }
+          updateChart(chart => chart.update());
 
           // Then another update after a short delay
-          setTimeout(() => {
+          const timeoutId2 = setTimeout(() => {
             if (chartRef.current) {
+              try {
               // Force redraw of the selected point
               const datasets = chartRef.current.data.datasets;
               datasets.forEach(dataset => {
@@ -2467,22 +2645,46 @@ const POIGraph = ({ map, showPOIMarkers, setShowPOIMarkers, showOSMPOIs, setShow
                 }
               });
 
-              chartRef.current.update();
+              updateChart(chart => chart.update());
+              } catch (err) {
+                console.error('Error updating chart in nested timeout:', err);
+              }
             }
           }, 50);
 
+          // Store timeout ID
+          const timeoutIds = window.poiGraphTimeouts || [];
+          timeoutIds.push(timeoutId2);
+          window.poiGraphTimeouts = timeoutIds;
+
           // And a final update after everything has settled
-          setTimeout(() => {
+          const timeoutId3 = setTimeout(() => {
             if (chartRef.current) {
-              chartRef.current.update();
+              try {
+                updateChart(chart => chart.update());
+              } catch (err) {
+                console.error('Error in final chart update:', err);
+              }
             }
           }, 150);
+
+          // Store timeout ID
+          timeoutIds.push(timeoutId3);
+          window.poiGraphTimeouts = timeoutIds;
         }
 
         // Log animation status
         console.log(`%c[CURVE MODE] Animation applied with duration ${chart.options.animation.duration}ms`, 'background: #9c27b0; color: white;');
+        } catch (err) {
+          console.error('Error updating chart in main timeout:', err);
+        }
       }
     }, 50);
+
+    // Store timeout ID
+    const timeoutIds = window.poiGraphTimeouts || [];
+    timeoutIds.push(timeoutId1);
+    window.poiGraphTimeouts = timeoutIds;
 
     // Log chart data for debugging
     if (data && data.scatterData) {
@@ -2532,8 +2734,9 @@ const POIGraph = ({ map, showPOIMarkers, setShowPOIMarkers, showOSMPOIs, setShow
       console.log(`%c[CURVE MODE] Updating chart reference with direct data update`, 'background: #9c27b0; color: white;');
 
       // Force a complete data refresh
-      setTimeout(() => {
+      const timeoutId4 = setTimeout(() => {
         if (chartRef.current) {
+          try {
           // Get fresh datasets with the current mode
           const freshDatasets = newShowCurve
             ? prepareScatterDatasets(data.scatterData || [], true)
@@ -2566,9 +2769,17 @@ const POIGraph = ({ map, showPOIMarkers, setShowPOIMarkers, showOSMPOIs, setShow
           }
 
           // Update the chart with the fresh data
-          chartRef.current.update();
+          updateChart(chart => chart.update());
+          } catch (err) {
+            console.error('Error updating chart with fresh data:', err);
+          }
         }
       }, 50);
+
+      // Store timeout ID
+      const timeoutIds = window.poiGraphTimeouts || [];
+      timeoutIds.push(timeoutId4);
+      window.poiGraphTimeouts = timeoutIds;
     } else {
       console.log(`%c[CURVE MODE] Chart reference not available`, 'background: #9c27b0; color: white;');
     }
@@ -2606,11 +2817,9 @@ const POIGraph = ({ map, showPOIMarkers, setShowPOIMarkers, showOSMPOIs, setShow
 
     // Update the chart to reflect the new filters
     // Use requestAnimationFrame for smoother updates
-    if (chartRef.current) {
-      requestAnimationFrame(() => {
-        chartRef.current.update('none'); // Use 'none' mode for fastest updates
-      });
-    }
+    requestAnimationFrame(() => {
+      updateChart(chart => chart.update('none')); // Use 'none' mode for fastest updates
+    });
   };
 
   // Add a half-mile radius circle around the selected POI
@@ -2851,6 +3060,7 @@ const POIGraph = ({ map, showPOIMarkers, setShowPOIMarkers, showOSMPOIs, setShow
             {data.scatterData && data.scatterData.length > 0 ? (
               showCurve ? (
                 <Line
+                  key={`line-${showOSM ? 'osm' : 'default'}-${Date.now()}`} // Add unique key to prevent canvas reuse issues
                   ref={chartRef}
                   options={{
                     ...scatterOptions,
@@ -3077,6 +3287,7 @@ const POIGraph = ({ map, showPOIMarkers, setShowPOIMarkers, showOSMPOIs, setShow
                 />
               ) : (
                 <Scatter
+                  key={`scatter-${showOSM ? 'osm' : 'default'}-${Date.now()}`} // Add unique key to prevent canvas reuse issues
                   ref={chartRef}
                   options={scatterOptions}
                   data={{ datasets: prepareScatterDatasets(data.scatterData || []) }}
