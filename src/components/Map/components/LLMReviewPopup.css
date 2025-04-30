@@ -1,0 +1,63 @@
+/* LLM Review Popup Styles - 20% smaller than default */
+.mapboxgl-popup.llm-review-popup {
+  z-index: 100;
+  max-width: 240px !important; /* 20% smaller than 300px */
+  width: auto !important;
+  animation: fadeIn 0.2s ease-out;
+  transform: scale(0.9); /* Make entire popup 10% smaller */
+  transform-origin: bottom center; /* Scale from bottom center for better positioning */
+}
+
+.mapboxgl-popup.llm-review-popup .mapboxgl-popup-content {
+  padding: 0 !important;
+  overflow: hidden;
+  border-radius: 7px !important; /* Slightly smaller radius */
+  box-shadow: 0 3px 15px rgba(0, 0, 0, 0.4) !important;
+  background-color: transparent !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Style the popup content */
+.mapboxgl-popup.llm-review-popup .llm-review-content {
+  padding: 13px 13px 10px 13px; /* Slightly smaller padding */
+  border-radius: 7px;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 0.9em; /* Make text 10% smaller */
+}
+
+/* Style the header to avoid overlap with close button */
+.mapboxgl-popup.llm-review-popup .llm-review-header {
+  padding-right: 30px !important; /* Make room for the close button */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Adjust the popup tip */
+.mapboxgl-popup.llm-review-popup .mapboxgl-popup-tip {
+  border-top-color: rgba(0, 0, 0, 0.85) !important;
+  border-bottom-color: rgba(0, 0, 0, 0.85) !important;
+  border-left-color: rgba(0, 0, 0, 0.85) !important;
+  border-right-color: rgba(0, 0, 0, 0.85) !important;
+}
+
+/* Adjust the close button */
+.mapboxgl-popup.llm-review-popup .mapboxgl-popup-close-button {
+  color: rgba(255, 255, 255, 0.8) !important;
+  font-size: 18px !important; /* Slightly larger for better clickability */
+  padding: 5px 10px !important;
+  z-index: 10;
+  right: 3px !important;
+  top: 3px !important;
+  background: transparent !important;
+  border: none !important;
+  font-weight: bold !important;
+}
+
+/* Animation for popup */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}

@@ -1,4 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import POIReviewPopup from './components/POIReviewPopup';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { askClaude, parseClaudeResponse } from '../../services/claude';
@@ -28,12 +30,21 @@ import PropertyPricesLayer from './components/PropertyPricesLayer';
 import EmploymentLayer from './components/EmploymentLayer';
 import BostonBuildingsLayer from './components/BostonBuildingsLayer';
 import POISynchronizer from './components/POISynchronizer';
-import { getColorForCategory } from './components/POIDataBar/utils/poiDataManager';
+import { getColorForCategory } from './utils/colorUtils';
 import { initializeEventBus } from './utils/MapEventBus';
 import { monitorPerformance, debugLog } from './utils/MapDebug';
 import { setupMapInteractionHandlers, setupTouchHandlers } from './utils/MapInteractions';
 import styled from 'styled-components';
 import OSMPOILayer from './components/OSMPOILayer';
+import CensusTractsLayer from './components/CensusTractsLayer';
+import NetworkMarkers from './components/NetworkMarkers';
+import PermitsLayer from './components/PermitsLayer';
+import PermitsMarkerLayer from './components/PermitsMarkerLayer';
+import StaticPermitCensusLayer from './components/StaticPermitCensusLayer';
+import CityBudgetLayer from './components/CityBudgetLayer';
+import LLMReviewLayer from './components/LLMReviewLayer';
+import './components/LLMReviewPopup.css'; // Import the LLM Review popup styles
+
 
 // Set mapbox access token
 mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_ACCESS_TOKEN;
@@ -126,6 +137,14 @@ const MapComponent = () => {
   const [selectedPOI, setSelectedPOI] = useState(null);
   const [poiGraphVisible, setPoiGraphVisible] = useState(false);
   const [showBostonBuildings, setShowBostonBuildings] = useState(false);
+  const [showCensusTracts, setShowCensusTracts] = useState(false);
+  const [showNetworkLayer, setShowNetworkLayer] = useState(false);
+  const [useRoadPaths, setUseRoadPaths] = useState(true);
+  const [showPermits, setShowPermits] = useState(false);
+  const [showNewPermits, setShowNewPermits] = useState(false);
+  const [showPermitCensus, setShowPermitCensus] = useState(false);
+  const [showCityBudget, setShowCityBudget] = useState(false);
+  const [showLLMReview, setShowLLMReview] = useState(false);
   const [selectedPolygonId, setSelectedPolygonId] = useState(null);
   const [categoryVisibility, setCategoryVisibility] = useState({});
   const [isSceneSidebarOpen, setIsSceneSidebarOpen] = useState(false);
@@ -257,28 +276,57 @@ const MapComponent = () => {
             feature: e.features[0]
           });
 
-          // Create popup content with more detailed information
+          // Create popup content with React component
           const popupContent = document.createElement('div');
           popupContent.className = 'poi-popup-content';
-          popupContent.innerHTML = `
-            <h3>
-              ${getPOIIcon(properties.type)}
-              ${properties.name || 'Unnamed POI'}
-            </h3>
-            <div class="poi-details">
-              <strong>Type:</strong> ${properties.type || 'Unknown'}<br>
-              ${properties.class ? `<strong>Category:</strong> ${properties.class.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}<br>` : ''}
-              ${properties.layer ? `<strong>Layer:</strong> ${properties.layer}<br>` : ''}
-              ${properties.source ? `<strong>Source:</strong> ${properties.source}<br>` : ''}
-            </div>
-            <div class="poi-meta">
-              ${properties.source_id ? `<span>ID: ${properties.source_id}</span>` : ''}
-              ${properties.osm_id ? `<span>OSM: ${properties.osm_id}</span>` : ''}
-            </div>
-          `;
+
+          // Create a feature object with the structure expected by POIReviewPopup
+          const feature = {
+            geometry: {
+              coordinates: poiCoordinates
+            },
+            properties: {
+              ...properties,
+              // Add color based on category
+              color: getColorForCategory(properties.type || properties.class || 'default'),
+              // Add mock reviews since Mapbox POIs don't have reviews
+              reviews: [
+                {
+                  author_name: 'Local Guide',
+                  rating: 4,
+                  relative_time_description: '2 months ago',
+                  text: 'Great place! The atmosphere is wonderful and the service is excellent.'
+                },
+                {
+                  author_name: 'Visitor',
+                  rating: 5,
+                  relative_time_description: '3 weeks ago',
+                  text: 'One of my favorite spots in the area. Highly recommended!'
+                },
+                {
+                  author_name: 'Resident',
+                  rating: 3,
+                  relative_time_description: '1 month ago',
+                  text: 'Decent place. Could improve on a few things but overall a good experience.'
+                }
+              ],
+              // Add rating if not present
+              rating: properties.rating || 4.0,
+              review_count: properties.review_count || 3
+            }
+          };
+
+          // Render our React component into the popup content
+          const root = createRoot(popupContent);
+          root.render(<POIReviewPopup feature={feature} />);
 
           // Create and add popup
-          new mapboxgl.Popup()
+          new mapboxgl.Popup({
+            offset: [0, -5],
+            closeButton: true,
+            closeOnClick: true,
+            maxWidth: '320px'
+          })
             .setLngLat(poiCoordinates)
             .setDOMContent(popupContent)
             .addTo(map.current);
@@ -302,7 +350,7 @@ const MapComponent = () => {
     } else {
       map.current.once('load', initializePOILayer);
     }
-  }, [map.current, poiLayerInitialized]);
+  }, [map, poiLayerInitialized]);
 
   // Handle POI layer visibility
   useEffect(() => {
@@ -363,7 +411,14 @@ const MapComponent = () => {
     const handlePOISelection = (event) => {
       console.log('Map: Received POI selection event:', event);
 
-      const { coordinates, properties } = event;
+      const { coordinates, properties, source } = event;
+
+      // Skip creating a popup if the event came from the POI Graph
+      // The POI Graph now creates its own popup
+      if (source === 'poigraph') {
+        console.log('Map: Skipping popup creation for POI Graph selection');
+        return;
+      }
 
       // Find the POI marker at the coordinates
       const features = map.current.queryRenderedFeatures(undefined, {
@@ -428,26 +483,60 @@ const MapComponent = () => {
         console.log('Map: No matching feature found for coordinates:', coordinates);
       }
 
-      // Create and show popup with offset to move it up and custom background color
-      const poiColor = getColorForCategory(properties.type || 'shops');
+      // Create popup content with React component
+      const popupContent = document.createElement('div');
+      popupContent.className = 'poi-popup-content';
+
+      // Create a feature object with the structure expected by POIReviewPopup
+      const featureObj = {
+        geometry: {
+          coordinates: coordinates
+        },
+        properties: {
+          ...properties,
+          // Add color based on category
+          color: getColorForCategory(properties.type || properties.category || 'default'),
+          // Add mock reviews since these POIs might not have reviews
+          reviews: [
+            {
+              author_name: 'Local Guide',
+              rating: 4,
+              relative_time_description: '2 months ago',
+              text: 'Great place! The atmosphere is wonderful and the service is excellent.'
+            },
+            {
+              author_name: 'Visitor',
+              rating: 5,
+              relative_time_description: '3 weeks ago',
+              text: 'One of my favorite spots in the area. Highly recommended!'
+            },
+            {
+              author_name: 'Resident',
+              rating: 3,
+              relative_time_description: '1 month ago',
+              text: 'Decent place. Could improve on a few things but overall a good experience.'
+            }
+          ],
+          // Add rating if not present
+          rating: properties.rating || 4.0,
+          review_count: properties.review_count || 3
+        }
+      };
+
+      // Render our React component into the popup content
+      const root = createRoot(popupContent);
+      root.render(<POIReviewPopup feature={featureObj} />);
 
       // Create a popup with an offset to move it up
       new mapboxgl.Popup({
-        offset: [0, -50], // Move the popup up by 50 pixels
+        offset: [0, -5],
+        closeButton: true,
+        closeOnClick: true,
+        maxWidth: '320px',
         className: 'poi-popup-custom'
       })
         .setLngLat(coordinates)
-        .setHTML(`
-          <div class="poi-popup-content" style="background-color: ${poiColor}; color: white;">
-            <h3>
-              ${getPOIIcon(properties.type)}
-              ${properties.name}
-            </h3>
-            <div class="poi-details">
-              <strong>Type:</strong> ${properties.type}<br>
-            </div>
-          </div>
-        `)
+        .setDOMContent(popupContent)
         .addTo(map.current);
 
       // Add custom style for this popup type if it doesn't exist
@@ -483,7 +572,7 @@ const MapComponent = () => {
         unsubscribe();
       }
     };
-  }, [map.current]);
+  }, [map]);
 
   // Handle POI Graph visibility changes
   useEffect(() => {
@@ -676,25 +765,23 @@ const MapComponent = () => {
       feature: feature
     });
 
-    // Create popup content
-    const popupContent = `
-      <div class="poi-popup">
-        <h3>${properties.name || 'Unnamed POI'}</h3>
-        <div class="poi-details">
-          <p><strong>Type:</strong> ${properties.type || 'Unknown'}</p>
-          <p><strong>Category:</strong> ${properties.category || 'Uncategorized'}</p>
-          ${properties.phone ? `<p><strong>Phone:</strong> ${properties.phone}</p>` : ''}
-          ${properties.website ? `<p><strong>Website:</strong> <a href="${properties.website}" target="_blank">Visit Website</a></p>` : ''}
-          ${properties.opening_hours ? `<p><strong>Hours:</strong> ${properties.opening_hours}</p>` : ''}
-          <p><strong>Source:</strong> OpenStreetMap</p>
-        </div>
-      </div>
-    `;
+    // Create popup content with React component
+    const popupContent = document.createElement('div');
+    popupContent.className = 'osm-poi-popup';
+
+    // Render our React component into the popup content
+    const root = createRoot(popupContent);
+    root.render(<POIReviewPopup feature={feature} />);
 
     // Create and show popup
-    new mapboxgl.Popup()
+    new mapboxgl.Popup({
+      offset: [0, -5],
+      closeButton: true,
+      closeOnClick: true,
+      maxWidth: '320px'
+    })
       .setLngLat(coordinates)
-      .setHTML(popupContent)
+      .setDOMContent(popupContent)
       .addTo(map.current);
 
     // Fly to the POI
@@ -789,8 +876,24 @@ const MapComponent = () => {
         setShowBostonBuildings={setShowBostonBuildings}
         showParks={showParks}
         setShowParks={setShowParks}
+        showCensusTracts={showCensusTracts}
+        setShowCensusTracts={setShowCensusTracts}
+        showNetworkLayer={showNetworkLayer}
+        setShowNetworkLayer={setShowNetworkLayer}
+        useRoadPaths={useRoadPaths}
+        setUseRoadPaths={setUseRoadPaths}
         isSceneSidebarOpen={isSceneSidebarOpen}
         setIsSceneSidebarOpen={setIsSceneSidebarOpen}
+        showPermits={showPermits}
+        setShowPermits={setShowPermits}
+        showNewPermits={showNewPermits}
+        setShowNewPermits={setShowNewPermits}
+        showPermitCensus={showPermitCensus}
+        setShowPermitCensus={setShowPermitCensus}
+        showCityBudget={showCityBudget}
+        setShowCityBudget={setShowCityBudget}
+        showLLMReview={showLLMReview}
+        setShowLLMReview={setShowLLMReview}
       />
 
       <OSMPOILayer
@@ -885,6 +988,48 @@ const MapComponent = () => {
         />
       )}
 
+      {/* Census Tracts Layer */}
+      <CensusTractsLayer
+        map={map}
+        visible={showCensusTracts}
+      />
+
+      {/* Network Analysis Layer */}
+      <NetworkMarkers
+        map={map}
+        visible={showNetworkLayer}
+      />
+
+      {/* Old Permits Layer */}
+      <PermitsLayer
+        map={map}
+        visible={showPermits}
+      />
+
+      {/* New Permits Layer */}
+      <PermitsMarkerLayer
+        map={map}
+        visible={showNewPermits}
+      />
+
+      {/* Permit Census Layer */}
+      <StaticPermitCensusLayer
+        map={map}
+        visible={showPermitCensus}
+      />
+
+      {/* City Budget Layer */}
+      <CityBudgetLayer
+        map={map}
+        visible={showCityBudget}
+      />
+
+      {/* LLM Review Layer */}
+      <LLMReviewLayer
+        map={map}
+        visible={showLLMReview}
+      />
+
       {map.current && (
         <SceneManager
           map={map.current}
@@ -892,35 +1037,10 @@ const MapComponent = () => {
           onClose={() => setIsSceneSidebarOpen(false)}
         />
       )}
+
+
     </MapContainer>
   );
 };
 
 export default MapComponent;
-
-const getPOIIcon = (type) => {
-  const icons = {
-    'Restaurant': '🍽️',
-    'Cafe': '☕',
-    'Bar': '🍸',
-    'Fast Food': '🍔',
-    'Shop': '🛍️',
-    'Grocery': '🛒',
-    'Mall': '🏪',
-    'Market': '🏪',
-    'Museum': '🏛️',
-    'Theater': '🎭',
-    'Cinema': '🎬',
-    'Gallery': '🎨',
-    'Park': '🌳',
-    'Garden': '🌺',
-    'Sports': '⚽',
-    'Hotel': '🏨',
-    'Bank': '🏦',
-    'Post': '📬',
-    'School': '🏫',
-    'Hospital': '🏥'
-  };
-  return icons[type] || '📍';
-};
-
